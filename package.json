@@ -1,0 +1,35 @@
+{
+  "name": "sliding-trans",
+  "version": "0.1.0-dev.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node scripts/e2e-smoke.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "openai": "^7.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@testing-library/jest-dom": "^6.9.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/chrome": "^0.1.35",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "jsdom": "^27.4.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.0",
+    "wxt": "^0.21.4"
+  }
+}

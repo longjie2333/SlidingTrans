@@ -1,0 +1,48 @@
+name: Build SlidingTrans extension
+description: Install dependencies, verify the project, and package the Chromium extension
+
+outputs:
+  artifact-name:
+    description: Name used for the workflow artifact
+    value: ${{ steps.package.outputs.artifact-name }}
+  artifact-path:
+    description: Path to the packaged extension ZIP
+    value: ${{ steps.package.outputs.artifact-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Check types
+      shell: bash
+      run: npm run check
+
+    - name: Run unit tests
+      shell: bash
+      run: npm test
+
+    - name: Build extension
+      shell: bash
+      run: npm run build
+
+    - name: Install Playwright Chromium
+      shell: bash
+      run: npx playwright install --with-deps chromium
+
+    - name: Run MV3 smoke test
+      shell: bash
+      run: npm run test:e2e
+
+    - name: Package extension
+      id: package
+      shell: bash
+      run: |
+        npm run zip
+        version="$(node -p "require('./package.json').version")"
+        artifact_path=".output/sliding-trans-${version}-chrome.zip"
+        test -f "$artifact_path"
+        echo "artifact-name=sliding-trans-${version}-chrome" >> "$GITHUB_OUTPUT"
+        echo "artifact-path=$artifact_path" >> "$GITHUB_OUTPUT"

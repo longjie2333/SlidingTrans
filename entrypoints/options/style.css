@@ -1,0 +1,57 @@
+:root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f7f8f9; color: #252525; }
+button, input, select { font: inherit; }
+.options { width: min(860px, calc(100vw - 40px)); margin: 0 auto; padding: 42px 0 80px; }
+.options-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+.options-brand { display: flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 750; }
+.options-brand span { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #ea4c89; color: #fff; font-size: 15px; }
+.options-header p { margin: 9px 0 0 43px; color: #777; font-size: 13px; }
+.settings-section { margin-top: 18px; padding: 24px; border: 1px solid #e6e7e8; border-radius: 10px; background: #fff; }
+h2 { margin: 0 0 18px; font-size: 16px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+label { display: grid; gap: 7px; color: #555; font-size: 13px; }
+label.full { grid-column: 1 / -1; }
+input, select { width: 100%; min-height: 36px; padding: 7px 10px; border: 1px solid #d9dbdd; border-radius: 6px; background: #fff; color: inherit; outline: none; font-size: 13px; }
+input:focus, select:focus { border-color: #ea4c89; box-shadow: 0 0 0 3px rgba(234,76,137,.12); }
+.model-picker { display: flex; align-items: center; }
+.model-picker input { border-radius: 6px 0 0 6px; }
+.icon-button { display: grid; place-items: center; min-width: 38px; min-height: 36px; padding: 0 10px; border: 1px solid #d9dbdd; border-left: 0; border-radius: 0 6px 6px 0; background: #f8f8f8; color: #777; cursor: pointer; }
+.icon-button:hover { color: #ea4c89; }
+.icon-button:disabled { opacity: .6; cursor: wait; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.key-input { display: flex; align-items: center; }
+.key-input input { border-radius: 6px 0 0 6px; }
+.key-input button { display: grid; place-items: center; min-height: 36px; padding: 0 10px; border: 1px solid #d9dbdd; border-left: 0; border-radius: 0 6px 6px 0; background: #f8f8f8; color: #777; cursor: pointer; }
+.hint { margin: 12px 0 16px; color: #888; font-size: 12px; line-height: 1.6; }
+.primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 13px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.primary-button { border: 1px solid #ea4c89; background: #ea4c89; color: #fff; }
+.secondary-button { border: 1px solid #ea4c89; background: #fff; color: #ea4c89; }
+.secondary-button:disabled { opacity: .6; cursor: wait; }
+.check-list { display: grid; gap: 12px; margin-top: 20px; }
+.check-list label { display: flex; align-items: center; gap: 8px; color: #444; }
+.check-list input { width: 16px; min-height: 16px; accent-color: #ea4c89; }
+.host-add { display: flex; gap: 8px; }
+.host-list { display: grid; gap: 6px; margin-top: 12px; }
+.host-row { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 0 10px; border-radius: 6px; background: #f5f6f7; color: #555; font-size: 13px; }
+.host-row button { display: grid; place-items: center; padding: 4px; border: 0; background: transparent; color: #888; cursor: pointer; }
+.host-row button:hover { color: #ea4c89; }
+.status { display: flex; align-items: center; gap: 6px; margin: -10px 0 18px; padding: 10px 12px; border-radius: 6px; font-size: 13px; }
+.status.success { background: #effaf2; color: #2c8244; }
+.status.error { background: #fff0f3; color: #b53655; }
+.loading { color: #888; }
+@media (max-width: 640px) { .options { width: calc(100vw - 24px); padding-top: 24px; } .options-header { align-items: flex-start; flex-direction: column; } .form-grid { grid-template-columns: 1fr; } label.full { grid-column: auto; } }
+@media (prefers-color-scheme: dark) {
+  body { background: #171819; color: #eee; }
+  .settings-section { border-color: #333536; background: #222324; }
+  input, select { border-color: #4a4b4c; background: #2b2c2d; }
+  .key-input button { border-color: #4a4b4c; background: #333435; }
+  .icon-button { border-color: #4a4b4c; background: #333435; }
+  .secondary-button { background: #222324; }
+  .host-row { background: #2b2c2d; color: #ddd; }
+  .options-header p, .hint { color: #aaa; }
+  .check-list label { color: #ddd; }
+  .status.success { background: #193523; color: #9ae2aa; }
+  .status.error { background: #3d2029; color: #ffadbf; }
+}

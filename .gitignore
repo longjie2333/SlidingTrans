@@ -1,0 +1,22 @@
+node_modules/
+.output/
+.wxt/
+coverage/
+playwright-report/
+test-results/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Logs and generated packages
+*.log
+*.zip
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
