@@ -16,6 +16,10 @@ runs:
       shell: bash
       run: npm ci
 
+    - name: Generate WXT types
+      shell: bash
+      run: npx wxt prepare
+
     - name: Check types
       shell: bash
       run: npm run check
