@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { play } from "cuelume";
 import { toast } from "sonner";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
@@ -60,6 +60,11 @@ function OptionsApp() {
     if (!activeService) return;
     update({ services: settings.services.map((service) => service.id === activeService.id ? { ...service, ...patch } : service) });
   };
+  const selectService = (serviceId: string) => {
+    update({ activeServiceId: serviceId });
+    setModels([]);
+    setCustomModel(false);
+  };
   const createService = () => {
     const service: TranslationService = {
       id: crypto.randomUUID(),
@@ -74,10 +79,11 @@ function OptionsApp() {
     setCustomModel(false);
     toast.success("已创建服务配置，请填写后保存");
   };
-  const removeActiveService = () => {
-    if (!activeService || settings.services.length <= 1) return;
-    const remaining = settings.services.filter((service) => service.id !== activeService.id);
-    update({ services: remaining, activeServiceId: remaining[0]!.id });
+  const removeService = (serviceId: string) => {
+    if (settings.services.length <= 1) return;
+    const remaining = settings.services.filter((service) => service.id !== serviceId);
+    const nextActiveServiceId = settings.activeServiceId === serviceId ? remaining[0]!.id : settings.activeServiceId;
+    update({ services: remaining, activeServiceId: nextActiveServiceId });
     setModels([]);
     setCustomModel(false);
   };
@@ -170,27 +176,31 @@ function OptionsApp() {
         <h2>翻译服务</h2>
         <div className="service-layout">
           <aside className="service-sidebar">
-            <span className="field-heading">服务配置</span>
-            <Select value={settings.activeServiceId} onValueChange={(value) => { update({ activeServiceId: value }); setModels([]); setCustomModel(false); }}>
-              <SelectTrigger id="service-selector"><SelectValue placeholder="选择服务" /></SelectTrigger>
-              <SelectContent>{settings.services.map((service) => <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>)}</SelectContent>
-            </Select>
-            <div className="service-actions">
-              <Button className="secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" size="sm" type="button" onClick={createService}><Plus size={15} /> 新建</Button>
-              <Button className="icon-button" variant="ghost" size="icon" type="button" aria-label="删除当前服务" title="删除当前服务" disabled={settings.services.length <= 1} onClick={removeActiveService}><Trash2 size={16} /></Button>
+            <div className="service-list" role="list" aria-label="翻译服务配置">
+              {settings.services.map((service) => (
+                <div className={`service-item${service.id === settings.activeServiceId ? " active" : ""}`} key={service.id} role="listitem">
+                  <Button className="service-item-main" variant="ghost" size="sm" type="button" onClick={() => selectService(service.id)}>
+                    <span className="service-item-name">{service.name}</span>
+                    {service.id === settings.activeServiceId ? <span className="service-item-current">当前</span> : null}
+                  </Button>
+                  <div className="service-item-actions">
+                    <Button className="service-item-action" variant="ghost" size="icon" type="button" aria-label={`使用 ${service.name}`} title={`使用 ${service.name}`} onClick={() => selectService(service.id)}><Check size={15} /></Button>
+                    <Button className="service-item-action" variant="ghost" size="icon" type="button" aria-label={`删除 ${service.name}`} title={`删除 ${service.name}`} disabled={settings.services.length <= 1} onClick={() => removeService(service.id)}><Trash2 size={15} /></Button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="hint">可配置多个翻译服务，并在这里切换当前使用的服务。</p>
+            <Button className="service-new-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" size="sm" type="button" onClick={createService}><Plus size={15} /> 新建</Button>
           </aside>
           <div className="service-details">
             <div className="form-grid">
               <label>服务名称<Input value={activeService?.name ?? ""} placeholder="例如 OpenAI" onChange={(event) => updateActiveService({ name: event.target.value })} /></label>
               <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onValueChange={(value) => updateActiveService({ protocol: value as TranslationService["protocol"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={API_PROTOCOLS[0]}>Chat Completions</SelectItem><SelectItem value={API_PROTOCOLS[1]}>Responses</SelectItem></SelectContent></Select></label>
-              <label>模型<div className="model-picker"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</label>
+              <label>模型<div className="model-picker"><div className="model-choice-controls"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</div></label>
               <label className="full">API Base URL<Input value={activeService?.baseUrl ?? ""} placeholder="https://api.openai.com/v1" onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
-              <label className="full">API Key<div className="key-input"><Input className="key-input-field" type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button className="key-visibility-button" variant="outline" size="icon" type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label>
+              <div className="connection-row full"><label className="api-key-field">API Key<div className="key-input"><Input className="key-input-field" type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button className="key-visibility-button" variant="outline" size="icon" type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label><Button className="connection-button secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button></div>
             </div>
             <p className="hint">API Key 仅保存在此浏览器的本地扩展存储中，不会同步到云端，也不会发送到 SlidingTrans。浏览器本地存储未加密，请勿在共享设备上使用。</p>
-            <Button className="secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button>
           </div>
         </div>
       </Card>

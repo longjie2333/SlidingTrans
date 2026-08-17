@@ -52,7 +52,7 @@ const server = http.createServer((request, response) => {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
     });
-    response.end(JSON.stringify({ data: [{ id: "gpt-z" }, { id: "gpt-a" }, { id: "gpt-z" }] }));
+    response.end(JSON.stringify({ data: [{ id: "gpt-z" }, { id: "gpt-a" }, ...Array.from({ length: 18 }, (_, index) => ({ id: `model-${String(index + 1).padStart(2, "0")}` }))] }));
     return;
   }
   if (request.url?.endsWith("/chat/completions")) {
@@ -92,14 +92,17 @@ try {
   await options.waitForSelector("text=翻译服务");
   assert.equal(await options.locator(".options-brand img").count(), 0);
   assert.equal((await options.locator(".options-brand").textContent())?.trim(), "SlidingTrans");
-  assert.equal(await options.locator(".service-actions .secondary-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
+  assert.equal(await options.locator(".service-new-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
   const baseUrl = `http://127.0.0.1:${port}/v1`;
   await options.evaluate(async (value) => {
     await chrome.storage.local.set({
       slidingTransSettings: {
         enabled: true,
         targetLanguage: "zh-CN",
-        services: [{ id: "mock", name: "Mock 服务", protocol: "chat-completions", baseUrl: value, model: "mock-model" }],
+        services: [
+          { id: "mock", name: "Mock 服务", protocol: "chat-completions", baseUrl: value, model: "mock-model" },
+          ...Array.from({ length: 8 }, (_, index) => ({ id: `extra-${index}`, name: `额外服务 ${index + 1}`, protocol: "chat-completions", baseUrl: value, model: "mock-model" })),
+        ],
         activeServiceId: "mock",
         triggerMode: "mini",
         triggerActivation: "click",
@@ -113,21 +116,44 @@ try {
 
   await options.reload();
   await options.waitForSelector("text=翻译服务");
-  assert.equal((await options.locator("#service-selector").textContent())?.trim(), "Mock 服务");
+  const serviceList = options.locator(".service-list");
+  assert.equal(await serviceList.evaluate((element) => getComputedStyle(element).overflowY), "auto");
+  assert.equal(await serviceList.evaluate((element) => element.scrollHeight > element.clientHeight), true);
+  assert.equal(await options.locator(".service-list .service-new-button").count(), 0);
+  assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   await options.getByRole("button", { name: "新建" }).click();
-  await options.locator("#service-selector").click();
-  assert.equal(await options.getByRole("option").count(), 2);
-  await options.getByRole("option", { name: "Mock 服务" }).click();
+  assert.equal(await options.locator(".service-item").count(), 10);
+  const mockServiceItem = options.locator(".service-item").filter({ hasText: "Mock 服务" });
+  await mockServiceItem.hover();
+  await options.waitForTimeout(250);
+  assert.equal(await mockServiceItem.locator(".service-item-actions").evaluate((element) => getComputedStyle(element).opacity), "1");
+  await mockServiceItem.getByRole("button", { name: "使用 Mock 服务" }).click();
+  assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
+  const createdServiceItem = options.locator(".service-item").last();
+  const createdServiceName = (await createdServiceItem.locator(".service-item-name").textContent())?.trim();
+  await createdServiceItem.hover();
+  await createdServiceItem.getByRole("button", { name: `删除 ${createdServiceName}` }).click();
+  assert.equal(await options.locator(".service-item").count(), 9);
   await options.getByRole("button", { name: "获取可用模型" }).click();
-  await options.getByText("已获取 2 个模型", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+  await options.getByText("已获取 20 个模型", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await options.locator("#model-selector").click();
+  const modelContent = options.locator('[data-slot="select-content"]');
+  assert.equal(await modelContent.locator('[data-slot="select-viewport"]').evaluate((element) => element.scrollHeight > element.clientHeight), true);
   assert.equal(await options.getByRole("option", { name: "gpt-a" }).count(), 1);
   assert.equal(await options.getByRole("option", { name: "gpt-z" }).count(), 1);
   await options.getByRole("option", { name: "gpt-a" }).click();
   assert.equal((await options.locator("#model-selector").textContent())?.trim(), "gpt-a");
   await options.locator("#model-selector").click();
   await options.getByRole("option", { name: "自定义模型" }).click();
+  const modelControlsBox = await options.locator(".model-choice-controls").boundingBox();
+  const customModelBox = await options.getByPlaceholder("输入自定义模型名称").boundingBox();
+  assert.equal(customModelBox.x > modelControlsBox.x, true);
+  assert.equal(Math.abs(customModelBox.y - modelControlsBox.y) < 8, true);
   await options.getByPlaceholder("输入自定义模型名称").fill("custom-model");
+  const apiKeyBox = await options.locator(".key-input").boundingBox();
+  const connectionButtonBox = await options.getByRole("button", { name: "测试连接" }).boundingBox();
+  assert.equal(connectionButtonBox.x > apiKeyBox.x, true);
+  assert.equal(Math.abs(connectionButtonBox.y - apiKeyBox.y) < 8, true);
   await options.waitForTimeout(500);
   assert.equal(modelCalls, 1);
 
