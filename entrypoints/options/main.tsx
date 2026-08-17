@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Check, Eye, EyeOff, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Check, Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
 import "./style.css";
@@ -13,8 +13,23 @@ function OptionsApp() {
   const [testing, setTesting] = useState(false);
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => { void loadSettings().then(setSettings); }, []);
+  useEffect(() => {
+    void loadSettings().then((value) => {
+      setSettings(value);
+      setLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!loaded || !settings) return;
+    const timeoutId = window.setTimeout(() => {
+      void saveSettings(settings)
+        .then(() => setMessage({ type: "success", text: "设置已自动保存" }))
+        .catch((error) => setMessage({ type: "error", text: error instanceof Error ? error.message : "设置无效" }));
+    }, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [loaded, settings]);
   if (!settings) return <main className="options loading">正在读取设置…</main>;
   const activeService = settings.services.find((service) => service.id === settings.activeServiceId) ?? settings.services[0];
   const update = (patch: Partial<SlidingTransSettings>) => setSettings((current) => current ? { ...current, ...patch } : current);
@@ -40,14 +55,6 @@ function OptionsApp() {
     const remaining = settings.services.filter((service) => service.id !== activeService.id);
     update({ services: remaining, activeServiceId: remaining[0]!.id });
     setModels([]);
-  };
-  const save = async () => {
-    try {
-      await saveSettings(settings);
-      setMessage({ type: "success", text: "设置已保存" });
-    } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "设置无效" });
-    }
   };
   const testConnection = async () => {
     const testRequestId = crypto.randomUUID();
@@ -127,8 +134,7 @@ function OptionsApp() {
   return (
     <main className="options">
       <header className="options-header">
-        <div><div className="options-brand"><img src="/logo-round.png" alt="" /> SlidingTrans</div><p>选中文本，即刻获得 AI 翻译、词典释义和发音。</p></div>
-        <button className="primary-button" type="button" onClick={() => void save()}><Save size={16} /> 保存设置</button>
+        <div><div className="options-brand">SlidingTrans</div><p>选中文本，即刻获得 AI 翻译、词典释义和发音。</p></div>
       </header>
       {message ? <div className={`status ${message.type}`}><Check size={15} /> {message.text}</div> : null}
       <section className="settings-section">

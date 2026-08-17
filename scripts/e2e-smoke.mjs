@@ -90,8 +90,9 @@ try {
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await options.waitForSelector("text=翻译服务");
-  assert.equal(await options.locator(".options-brand img").evaluate((image) => image.naturalWidth), 512);
-  assert.equal(await options.locator(".primary-button").evaluate((button) => getComputedStyle(button).backgroundColor), "rgb(48, 164, 108)");
+  assert.equal(await options.locator(".options-brand img").count(), 0);
+  assert.equal((await options.locator(".options-brand").textContent())?.trim(), "SlidingTrans");
+  assert.equal(await options.locator(".service-picker .secondary-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
   const baseUrl = `http://127.0.0.1:${port}/v1`;
   await options.evaluate(async (value) => {
     await chrome.storage.local.set({
@@ -116,7 +117,7 @@ try {
   await options.getByRole("button", { name: "新建" }).click();
   assert.equal(await options.locator("#service-selector option").count(), 3);
   await options.locator("#service-selector").selectOption("mock");
-  await options.getByRole("button", { name: "保存设置" }).click();
+  await options.waitForSelector("text=设置已自动保存");
   await options.getByRole("button", { name: "获取可用模型" }).click();
   await options.waitForSelector("text=已获取 2 个模型");
   const modelOptions = await options.locator("#model-options option").evaluateAll((items) => items.map((item) => item.value));
