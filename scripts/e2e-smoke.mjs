@@ -101,7 +101,7 @@ try {
         targetLanguage: "zh-CN",
         services: [
           { id: "mock", name: "Mock 服务", protocol: "chat-completions", baseUrl: value, model: "mock-model" },
-          ...Array.from({ length: 8 }, (_, index) => ({ id: `extra-${index}`, name: `额外服务 ${index + 1}`, protocol: "chat-completions", baseUrl: value, model: "mock-model" })),
+          ...Array.from({ length: 16 }, (_, index) => ({ id: `extra-${index}`, name: `额外服务 ${index + 1}`, protocol: "chat-completions", baseUrl: value, model: "mock-model" })),
         ],
         activeServiceId: "mock",
         triggerMode: "mini",
@@ -118,22 +118,36 @@ try {
   await options.waitForSelector("text=翻译服务");
   const serviceList = options.locator(".service-list");
   assert.equal(await serviceList.evaluate((element) => getComputedStyle(element).overflowY), "auto");
+  assert.equal(await serviceList.evaluate((element) => getComputedStyle(element).scrollbarWidth), "thin");
   assert.equal(await serviceList.evaluate((element) => element.scrollHeight > element.clientHeight), true);
+  assert.equal(await serviceList.evaluate((element) => {
+    const sidebar = element.parentElement;
+    const newButton = sidebar?.querySelector(".service-new-button");
+    if (!sidebar || !newButton) return false;
+    const gap = Number.parseFloat(getComputedStyle(sidebar).rowGap) || 0;
+    return Math.abs(sidebar.clientHeight - element.clientHeight - newButton.getBoundingClientRect().height - gap) < 2;
+  }), true);
   assert.equal(await options.locator(".service-list .service-new-button").count(), 0);
+  assert.notEqual(await serviceList.locator(".service-item").nth(1).evaluate((element) => getComputedStyle(element).backgroundColor), "rgba(0, 0, 0, 0)");
+  assert.equal(await options.locator(".translation-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length), 3);
+  assert.equal(await options.locator(".service-details .form-grid > label.full").count(), 2);
   assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   await options.getByRole("button", { name: "新建" }).click();
-  assert.equal(await options.locator(".service-item").count(), 10);
+  assert.equal(await options.locator(".service-item").count(), 18);
   const mockServiceItem = options.locator(".service-item").filter({ hasText: "Mock 服务" });
   await mockServiceItem.hover();
   await options.waitForTimeout(250);
   assert.equal(await mockServiceItem.locator(".service-item-actions").evaluate((element) => getComputedStyle(element).opacity), "1");
-  await mockServiceItem.getByRole("button", { name: "使用 Mock 服务" }).click();
+  assert.equal(await mockServiceItem.getByRole("button", { name: "使用 Mock 服务" }).count(), 0);
+  const mockDeleteButton = mockServiceItem.getByRole("button", { name: "删除 Mock 服务" });
+  assert.equal(await mockDeleteButton.evaluate((button) => getComputedStyle(button).color), "rgb(220, 38, 38)");
+  await mockServiceItem.locator(".service-item-main").click();
   assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   const createdServiceItem = options.locator(".service-item").last();
   const createdServiceName = (await createdServiceItem.locator(".service-item-name").textContent())?.trim();
   await createdServiceItem.hover();
-  await createdServiceItem.getByRole("button", { name: `删除 ${createdServiceName}` }).click();
-  assert.equal(await options.locator(".service-item").count(), 9);
+  await createdServiceItem.getByRole("button", { name: `删除 ${createdServiceName}` }).evaluate((button) => button.click());
+  assert.equal(await options.locator(".service-item").count(), 17);
   await options.getByRole("button", { name: "获取可用模型" }).click();
   await options.getByText("已获取 20 个模型", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await options.locator("#model-selector").click();

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Check, Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { play } from "cuelume";
 import { toast } from "sonner";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
@@ -184,8 +184,7 @@ function OptionsApp() {
                     {service.id === settings.activeServiceId ? <span className="service-item-current">当前</span> : null}
                   </Button>
                   <div className="service-item-actions">
-                    <Button className="service-item-action" variant="ghost" size="icon" type="button" aria-label={`使用 ${service.name}`} title={`使用 ${service.name}`} onClick={() => selectService(service.id)}><Check size={15} /></Button>
-                    <Button className="service-item-action" variant="ghost" size="icon" type="button" aria-label={`删除 ${service.name}`} title={`删除 ${service.name}`} disabled={settings.services.length <= 1} onClick={() => removeService(service.id)}><Trash2 size={15} /></Button>
+                    <Button className="service-item-action service-item-delete" variant="ghost" size="icon" type="button" aria-label={`删除 ${service.name}`} title={`删除 ${service.name}`} disabled={settings.services.length <= 1} onClick={() => removeService(service.id)}><Trash2 size={15} /></Button>
                   </div>
                 </div>
               ))}
@@ -196,7 +195,7 @@ function OptionsApp() {
             <div className="form-grid">
               <label>服务名称<Input value={activeService?.name ?? ""} placeholder="例如 OpenAI" onChange={(event) => updateActiveService({ name: event.target.value })} /></label>
               <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onValueChange={(value) => updateActiveService({ protocol: value as TranslationService["protocol"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={API_PROTOCOLS[0]}>Chat Completions</SelectItem><SelectItem value={API_PROTOCOLS[1]}>Responses</SelectItem></SelectContent></Select></label>
-              <label>模型<div className="model-picker"><div className="model-choice-controls"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</div></label>
+              <label className="full">模型<div className="model-picker"><div className="model-choice-controls"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</div></label>
               <label className="full">API Base URL<Input value={activeService?.baseUrl ?? ""} placeholder="https://api.openai.com/v1" onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
               <div className="connection-row full"><label className="api-key-field">API Key<div className="key-input"><Input className="key-input-field" type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button className="key-visibility-button" variant="outline" size="icon" type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label><Button className="connection-button secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button></div>
             </div>
@@ -206,7 +205,7 @@ function OptionsApp() {
       </Card>
       <Card className="settings-section">
         <h2>划词翻译</h2>
-        <div className="form-grid">
+        <div className="form-grid translation-grid">
           <label>目标语言<Select value={settings.targetLanguage} onValueChange={(value) => update({ targetLanguage: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TARGET_LANGUAGES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></label>
           <label>触发方式<Select value={settings.triggerMode} onValueChange={(value) => update({ triggerMode: value as SlidingTransSettings["triggerMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRIGGER_MODES.map((mode) => <SelectItem key={mode} value={mode}>{mode === "mini" ? "迷你圆点" : mode === "icon" ? "图标" : "直接触发"}</SelectItem>)}</SelectContent></Select></label>
           {settings.triggerMode !== "direct" ? <label>图标触发<Select value={settings.triggerActivation} onValueChange={(value) => update({ triggerActivation: value as SlidingTransSettings["triggerActivation"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRIGGER_ACTIVATIONS.map((activation) => <SelectItem key={activation} value={activation}>{activation === "hover" ? "悬浮 200ms" : "点击"}</SelectItem>)}</SelectContent></Select></label> : null}
