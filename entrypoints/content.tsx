@@ -284,7 +284,7 @@ function Modal({
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
           <MoreMenu settings={settings} onAutoRead={onAutoRead} onPauseOnce={onPauseOnce} onBlockSite={onBlockSite} onDisable={onDisable} />
-          <button type="button" aria-label="关闭" title="关闭" onClick={onClose}><X size={16} /></button>
+          <button type="button" aria-label="关闭" title="关闭" onPointerDown={(event) => { event.stopPropagation(); onClose(); }}><X size={16} /></button>
         </div>
       </div>
       <div className="st-modal-body">

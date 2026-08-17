@@ -38,6 +38,8 @@ async function findChromiumExecutable() {
 const profilePath = await fs.mkdtemp(path.join(os.tmpdir(), "sliding-trans-e2e-"));
 let calls = 0;
 let modelCalls = 0;
+let holdNextTranslation = true;
+let slowRequestAborted = false;
 const server = http.createServer((request, response) => {
   if (request.url === "/page") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -59,6 +61,11 @@ const server = http.createServer((request, response) => {
       "content-type": "text/event-stream",
       "access-control-allow-origin": "*",
     });
+    if (holdNextTranslation) {
+      holdNextTranslation = false;
+      response.on("close", () => { if (!response.writableEnded) slowRequestAborted = true; });
+      return;
+    }
     response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: '{"kind":"text","sourceLanguage":"en","translation":"冒烟测试成功"}' } }] })}${newline}`);
     response.write(`data: [DONE]${newline}`);
     response.end();
@@ -134,9 +141,21 @@ try {
   assert.equal(await trigger.count(), 1);
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger")).backgroundColor), "rgb(48, 164, 108)");
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, button: 0 })));
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"), undefined, { timeout: 1000 });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(slowRequestAborted, true);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-sentence-translation")?.textContent === "冒烟测试成功", undefined, { timeout: 5000 });
   assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo").naturalWidth), 512);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
 } finally {
   await context.close();
