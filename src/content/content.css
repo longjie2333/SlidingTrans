@@ -1,3 +1,5 @@
+@import "../ui/tailwind.css";
+
 :host {
   all: initial;
   color-scheme: light dark;
@@ -43,12 +45,13 @@ button { font: inherit; }
 .st-model { min-width: 0; flex: 1; overflow: hidden; color: #777; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .st-header-actions, .st-history, .st-result-actions { display: flex; align-items: center; gap: 3px; }
 .st-header-actions > button, .st-menu-wrap > button, .st-history button, .st-result-actions button, .st-word-heading button { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #888; cursor: pointer; }
+.st-header-actions [data-slot="button"], .st-menu-wrap [data-slot="button"], .st-history [data-slot="button"], .st-result-actions [data-slot="button"], .st-word-heading [data-slot="button"] { min-height: 26px; }
 .st-header-actions > button:hover, .st-menu-wrap > button:hover, .st-history button:hover, .st-result-actions button:hover, .st-word-heading button:hover { background: #f5f6f7; color: #30A46C; }
 .st-history { gap: 2px; color: #888; font-size: 11px; }
-.st-history button { width: 20px; }
+.st-history button { width: 20px; min-height: 20px; }
 .st-menu-wrap { position: relative; }
 .st-menu { position: absolute; top: 30px; right: 0; z-index: 2; width: 164px; padding: 6px; border: 1px solid #eee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
-.st-menu button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #444; text-align: left; font-size: 12px; cursor: pointer; }
+.st-menu button { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 0; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #444; text-align: left; font-size: 12px; cursor: pointer; }
 .st-menu button:hover { background: #f6f7f8; color: #30A46C; }
 .st-modal-body { max-height: min(64vh, 520px); overflow: auto; padding: 14px 16px 16px; }
 .st-loading-body { display: flex; align-items: center; gap: 10px; min-height: 82px; color: #777; font-size: 13px; white-space: pre-wrap; }

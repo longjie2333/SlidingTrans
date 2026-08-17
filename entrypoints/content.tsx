@@ -4,6 +4,7 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { Copy, LoaderCircle, LockKeyhole, Menu, Mic, Pin, PinOff, RefreshCw, Volume2, X } from "lucide-react";
 import { play } from "cuelume";
+import { Button } from "../src/ui/button";
 import { isLikelySameLanguage, SelectionController } from "../src/content/selection";
 import { getModalPlacement, getTriggerPoint } from "../src/content/position";
 import { isHostBlocked, isHostPausedForSession, loadContentSettings, pauseHostForSession, saveContentSettings } from "../src/shared/settings";
@@ -99,9 +100,9 @@ function ResultBody({
     return (
       <div className="st-error-body">
         <p>{record.error || "翻译请求失败"}</p>
-        <button type="button" className="st-secondary-button" onClick={onRetry}>
+        <Button type="button" className="st-secondary-button" variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw size={14} /> 重试
-        </button>
+        </Button>
       </div>
     );
   }
@@ -117,9 +118,9 @@ function ResultBody({
           <div className="st-word-heading">
             <strong>{source}</strong>
             {result.phonetic ? <span>{result.phonetic}</span> : null}
-            <button type="button" aria-label="朗读原文" title="朗读原文" onClick={() => speak(source, result.sourceLanguage)}>
+            <Button variant="ghost" size="icon" type="button" aria-label="朗读原文" title="朗读原文" onClick={() => speak(source, result.sourceLanguage)}>
               <Volume2 size={15} />
-            </button>
+            </Button>
           </div>
           <div className="st-definitions">
             {result.definitions?.map((definition, index) => (
@@ -158,12 +159,12 @@ function ResultBody({
 function ResultActions({ text, language }: { text: string; language: string }) {
   return (
     <div className="st-result-actions">
-      <button type="button" aria-label="朗读译文" title="朗读译文" onClick={() => speak(text, language)}>
+      <Button variant="ghost" size="icon" type="button" aria-label="朗读译文" title="朗读译文" onClick={() => speak(text, language)}>
         <Volume2 size={14} />
-      </button>
-      <button type="button" aria-label="复制译文" title="复制译文" onClick={() => copyText(text)}>
+      </Button>
+      <Button variant="ghost" size="icon" type="button" aria-label="复制译文" title="复制译文" onClick={() => copyText(text)}>
         <Copy size={14} />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -184,17 +185,17 @@ function MoreMenu({
   const [open, setOpen] = useState(false);
   return (
     <div className="st-menu-wrap">
-      <button type="button" aria-label="更多设置" title="更多设置" onClick={() => setOpen((value) => !value)}>
+      <Button variant="ghost" size="icon" type="button" aria-label="更多设置" title="更多设置" onClick={() => setOpen((value) => !value)}>
         <Menu size={16} />
-      </button>
+      </Button>
       {open ? (
         <div className="st-menu" onClick={() => setOpen(false)}>
-          <button type="button" onClick={onAutoRead}>
+          <Button variant="ghost" size="sm" type="button" onClick={onAutoRead}>
             <Volume2 size={14} /> {settings.autoReadWord ? "关闭自动朗读" : "开启自动朗读"}
-          </button>
-          <button type="button" onClick={onPauseOnce}><LockKeyhole size={14} /> 本次关闭</button>
-          <button type="button" onClick={onBlockSite}><LockKeyhole size={14} /> 当前网站禁用</button>
-          <button type="button" onClick={onDisable}><X size={14} /> 永久关闭</button>
+          </Button>
+          <Button variant="ghost" size="sm" type="button" onClick={onPauseOnce}><LockKeyhole size={14} /> 本次关闭</Button>
+          <Button variant="ghost" size="sm" type="button" onClick={onBlockSite}><LockKeyhole size={14} /> 当前网站禁用</Button>
+          <Button variant="ghost" size="sm" type="button" onClick={onDisable}><X size={14} /> 永久关闭</Button>
         </div>
       ) : null}
     </div>
@@ -276,16 +277,16 @@ function Modal({
         <div className="st-header-actions">
           {records.length > 1 ? (
             <div className="st-history">
-              <button type="button" aria-label="上一条" onClick={() => onIndex(Math.max(0, index - 1))}>‹</button>
+              <Button variant="ghost" size="icon" type="button" aria-label="上一条" onClick={() => onIndex(Math.max(0, index - 1))}>‹</Button>
               <span>{index + 1}/{records.length}</span>
-              <button type="button" aria-label="下一条" onClick={() => onIndex(Math.min(records.length - 1, index + 1))}>›</button>
+              <Button variant="ghost" size="icon" type="button" aria-label="下一条" onClick={() => onIndex(Math.min(records.length - 1, index + 1))}>›</Button>
             </div>
           ) : null}
-          <button type="button" aria-label={pinned ? "取消固定" : "固定弹窗"} title={pinned ? "取消固定" : "固定弹窗"} onClick={onPin}>
+          <Button variant="ghost" size="icon" type="button" aria-label={pinned ? "取消固定" : "固定弹窗"} title={pinned ? "取消固定" : "固定弹窗"} onClick={onPin}>
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
-          </button>
+          </Button>
           <MoreMenu settings={settings} onAutoRead={onAutoRead} onPauseOnce={onPauseOnce} onBlockSite={onBlockSite} onDisable={onDisable} />
-          <button type="button" aria-label="关闭" title="关闭" onPointerDown={(event) => { event.stopPropagation(); onClose(); }}><X size={16} /></button>
+          <Button variant="ghost" size="icon" type="button" aria-label="关闭" title="关闭" onPointerDown={(event) => { event.stopPropagation(); onClose(); }}><X size={16} /></Button>
         </div>
       </div>
       <div className="st-modal-body">
