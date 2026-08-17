@@ -92,7 +92,7 @@ try {
   await options.waitForSelector("text=翻译服务");
   assert.equal(await options.locator(".options-brand img").count(), 0);
   assert.equal((await options.locator(".options-brand").textContent())?.trim(), "SlidingTrans");
-  assert.equal(await options.locator(".service-picker .secondary-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
+  assert.equal(await options.locator(".service-actions .secondary-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
   const baseUrl = `http://127.0.0.1:${port}/v1`;
   await options.evaluate(async (value) => {
     await chrome.storage.local.set({
@@ -118,17 +118,24 @@ try {
   await options.locator("#service-selector").click();
   assert.equal(await options.getByRole("option").count(), 2);
   await options.getByRole("option", { name: "Mock 服务" }).click();
-  await options.waitForSelector("text=设置已自动保存");
   await options.getByRole("button", { name: "获取可用模型" }).click();
-  await options.waitForSelector("text=已获取 2 个模型");
-  const modelOptions = await options.locator("#model-options option").evaluateAll((items) => items.map((item) => item.value));
-  assert.deepEqual(modelOptions, ["gpt-a", "gpt-z"]);
+  await options.getByText("已获取 2 个模型", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
+  await options.locator("#model-selector").click();
+  assert.equal(await options.getByRole("option", { name: "gpt-a" }).count(), 1);
+  assert.equal(await options.getByRole("option", { name: "gpt-z" }).count(), 1);
+  await options.getByRole("option", { name: "gpt-a" }).click();
+  assert.equal((await options.locator("#model-selector").textContent())?.trim(), "gpt-a");
+  await options.locator("#model-selector").click();
+  await options.getByRole("option", { name: "自定义模型" }).click();
+  await options.getByPlaceholder("输入自定义模型名称").fill("custom-model");
+  await options.waitForTimeout(500);
   assert.equal(modelCalls, 1);
 
   const publicSettings = await options.evaluate(async () => (await chrome.storage.local.get("slidingTransSettings")).slidingTransSettings);
   assert.equal(Object.hasOwn(publicSettings, "apiKey"), false);
   assert.equal(Object.hasOwn(publicSettings.services[0], "apiKey"), false);
   assert.equal(publicSettings.activeServiceId, "mock");
+  assert.equal(publicSettings.services.find((service) => service.id === "mock").model, "custom-model");
 
   const page = await context.newPage();
   await page.goto(`http://127.0.0.1:${port}/page`);
