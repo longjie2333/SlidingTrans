@@ -1,8 +1,10 @@
 import { defineConfig } from "wxt";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   publicDir: "images",
+  vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
     content_security_policy: {
       extension_pages: "script-src 'self'; object-src 'self'",

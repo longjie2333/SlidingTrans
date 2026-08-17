@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { ExternalLink, Settings2 } from "lucide-react";
 import { getActiveService, isHostBlocked, loadSettings, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import type { SlidingTransSettings } from "../../src/shared/types";
+import { Button } from "../../src/ui/button";
+import { Select } from "../../src/ui/select";
+import "../../src/ui/tailwind.css";
 import "./style.css";
 
 function PopupApp() {
@@ -34,21 +37,21 @@ function PopupApp() {
     <main className="popup">
       <header className="popup-header">
         <div className="popup-brand"><img className="popup-logo" src="/logo-round.png" alt="" /><div><strong>SlidingTrans</strong><small>AI 划词翻译</small></div></div>
-        <button className={`toggle ${settings.enabled ? "on" : ""}`} type="button" aria-label="启用或关闭" onClick={() => void update({ enabled: !settings.enabled })}><span /></button>
+        <Button className={`toggle ${settings.enabled ? "on" : ""}`} variant="ghost" size="icon" type="button" aria-label="启用或关闭" onClick={() => void update({ enabled: !settings.enabled })}><span /></Button>
       </header>
       <section className="popup-section">
         <label htmlFor="target-language">目标语言</label>
-        <select id="target-language" value={settings.targetLanguage} onChange={(event) => void update({ targetLanguage: event.target.value })}>
+        <Select id="target-language" value={settings.targetLanguage} onChange={(event) => void update({ targetLanguage: event.target.value })}>
           {TARGET_LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
+        </Select>
       </section>
       <section className="popup-section popup-site-section">
         <div><strong>{hostname || "当前页面"}</strong><small>{hostname ? (siteBlocked ? "当前网站已禁用" : "当前网站已启用") : "浏览器内部页面不支持注入"}</small></div>
-        {hostname ? <button className={`site-toggle ${siteBlocked ? "blocked" : ""}`} type="button" onClick={toggleSite}>{siteBlocked ? "启用" : "禁用"}</button> : null}
+        {hostname ? <Button className={`site-toggle ${siteBlocked ? "blocked" : ""}`} variant="outline" size="sm" type="button" onClick={toggleSite}>{siteBlocked ? "启用" : "禁用"}</Button> : null}
       </section>
       {!activeService.apiKey || !activeService.model ? <div className="setup-notice">请先在设置页填写 API Key 和模型名称。</div> : null}
       <footer className="popup-footer">
-        <button type="button" onClick={() => void browser.runtime.openOptionsPage()}><Settings2 size={15} /> 设置</button>
+        <Button variant="ghost" size="sm" type="button" onClick={() => void browser.runtime.openOptionsPage()}><Settings2 size={15} /> 设置</Button>
         <a href="https://github.com/" target="_blank" rel="noreferrer"><ExternalLink size={14} /> SlidingTrans</a>
       </footer>
     </main>
