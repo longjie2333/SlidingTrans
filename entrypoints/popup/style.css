@@ -8,10 +8,10 @@ button, select { font: inherit; }
 .popup-brand strong, .popup-brand small { display: block; }
 .popup-brand strong { font-size: 14px; }
 .popup-brand small { margin-top: 2px; color: #888; font-size: 11px; }
-.popup-logo { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: #ea4c89; color: white; font-weight: 800; }
+.popup-logo { display: block; width: 28px; height: 28px; border-radius: 8px; }
 .toggle { width: 40px; height: 22px; padding: 2px; border: 0; border-radius: 99px; background: #c7c9cc; cursor: pointer; }
 .toggle span { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s ease; }
-.toggle.on { background: #ea4c89; }
+.toggle.on { background: #30A46C; }
 .toggle.on span { transform: translateX(18px); }
 .popup-section { padding: 15px 0; border-bottom: 1px solid #eee; }
 .popup-section label { display: block; margin-bottom: 7px; color: #777; font-size: 12px; }
@@ -20,16 +20,16 @@ select { width: 100%; height: 34px; padding: 0 9px; border: 1px solid #ddd; bord
 .popup-site-section strong, .popup-site-section small { display: block; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popup-site-section strong { font-size: 12px; }
 .popup-site-section small { margin-top: 3px; color: #888; font-size: 11px; }
-.site-toggle { padding: 5px 9px; border: 1px solid #ea4c89; border-radius: 5px; background: transparent; color: #ea4c89; cursor: pointer; font-size: 11px; }
+.site-toggle { padding: 5px 9px; border: 1px solid #30A46C; border-radius: 5px; background: transparent; color: #30A46C; cursor: pointer; font-size: 11px; }
 .site-toggle.blocked { border-color: #888; color: #666; }
-.setup-notice { margin-top: 14px; padding: 9px 10px; border-radius: 6px; background: #fff5f8; color: #c24662; font-size: 12px; line-height: 1.5; }
+.setup-notice { margin-top: 14px; padding: 9px 10px; border-radius: 6px; background: #EFFAF5; color: #257D52; font-size: 12px; line-height: 1.5; }
 .popup-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; }
 .popup-footer button, .popup-footer a { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #777; text-decoration: none; cursor: pointer; font-size: 12px; }
-.popup-footer button:hover, .popup-footer a:hover { color: #ea4c89; }
+.popup-footer button:hover, .popup-footer a:hover { color: #30A46C; }
 .loading { color: #888; font-size: 13px; }
 @media (prefers-color-scheme: dark) {
   body { background: #202122; color: #eee; }
   .popup-header, .popup-section { border-color: #393a3b; }
   select { border-color: #4b4c4d; background: #292a2b; }
-  .setup-notice { background: #3a262e; color: #ff9dbb; }
+  .setup-notice { background: #18392B; color: #79D2A5; }
 }

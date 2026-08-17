@@ -16,14 +16,14 @@ button { font: inherit; }
   padding: 0;
   border: 1px solid #fff;
   cursor: pointer;
-  background: #ea4c89;
+  background: #30A46C;
   color: #fff;
-  box-shadow: 0 1px 4px rgba(38, 16, 27, .25);
+  box-shadow: 0 1px 4px rgba(14, 69, 45, .25);
 }
 .st-trigger-mini { width: 10px; height: 10px; border-radius: 50%; }
 .st-trigger-mini:hover { transform: translate(-50%, -50%) scale(1.15); }
 .st-trigger-icon { width: 26px; height: 26px; border: 0; border-radius: 8px; }
-.st-logo { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: #ea4c89; color: #fff; font-size: 11px; font-weight: 800; line-height: 1; }
+.st-logo { display: block; width: 18px; height: 18px; border-radius: 6px; }
 .st-trigger-icon .st-logo { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
 
 .st-modal {
@@ -37,22 +37,22 @@ button { font: inherit; }
   color: #333;
   box-shadow: 0 12px 38px rgba(0,0,0,.16);
 }
-.st-modal-pinned { box-shadow: 0 16px 46px rgba(234,76,137,.2); }
+.st-modal-pinned { box-shadow: 0 16px 46px rgba(48,164,108,.2); }
 .st-modal-header { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 10px 8px 12px; border-bottom: 1px solid #f0f1f2; cursor: move; user-select: none; }
 .st-brand { display: flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: 12px; font-weight: 700; }
 .st-model { min-width: 0; flex: 1; overflow: hidden; color: #777; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .st-header-actions, .st-history, .st-result-actions { display: flex; align-items: center; gap: 3px; }
 .st-header-actions > button, .st-menu-wrap > button, .st-history button, .st-result-actions button, .st-word-heading button { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #888; cursor: pointer; }
-.st-header-actions > button:hover, .st-menu-wrap > button:hover, .st-history button:hover, .st-result-actions button:hover, .st-word-heading button:hover { background: #f5f6f7; color: #ea4c89; }
+.st-header-actions > button:hover, .st-menu-wrap > button:hover, .st-history button:hover, .st-result-actions button:hover, .st-word-heading button:hover { background: #f5f6f7; color: #30A46C; }
 .st-history { gap: 2px; color: #888; font-size: 11px; }
 .st-history button { width: 20px; }
 .st-menu-wrap { position: relative; }
 .st-menu { position: absolute; top: 30px; right: 0; z-index: 2; width: 164px; padding: 6px; border: 1px solid #eee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
 .st-menu button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #444; text-align: left; font-size: 12px; cursor: pointer; }
-.st-menu button:hover { background: #f6f7f8; color: #ea4c89; }
+.st-menu button:hover { background: #f6f7f8; color: #30A46C; }
 .st-modal-body { max-height: min(64vh, 520px); overflow: auto; padding: 14px 16px 16px; }
 .st-loading-body { display: flex; align-items: center; gap: 10px; min-height: 82px; color: #777; font-size: 13px; white-space: pre-wrap; }
-.st-spin { color: #ea4c89; animation: st-spin 1s linear infinite; flex: 0 0 auto; }
+.st-spin { color: #30A46C; animation: st-spin 1s linear infinite; flex: 0 0 auto; }
 @keyframes st-spin { to { transform: rotate(360deg); } }
 .st-result-body { min-width: 0; font-size: 14px; line-height: 1.55; }
 .st-word-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -60,8 +60,8 @@ button { font: inherit; }
 .st-word-heading > span { color: #888; font-size: 12px; }
 .st-definitions { display: grid; gap: 10px; }
 .st-definition { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 8px; }
-.st-pos { color: #ea4c89; font-size: 12px; font-weight: 700; }
-.st-example { display: grid; gap: 2px; margin-top: 5px; padding-left: 8px; border-left: 2px solid #f5b4ca; color: #777; font-size: 12px; }
+.st-pos { color: #30A46C; font-size: 12px; font-weight: 700; }
+.st-example { display: grid; gap: 2px; margin-top: 5px; padding-left: 8px; border-left: 2px solid #A8D5C2; color: #777; font-size: 12px; }
 .st-translation-line { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #222; }
 .st-translation-line strong { font-size: 16px; }
 .st-result-actions { margin-left: auto; flex: 0 0 auto; }
@@ -70,7 +70,7 @@ button { font: inherit; }
 .st-streaming { display: block; margin-top: 8px; color: #aaa; font-size: 11px; }
 .st-error-body { display: grid; justify-items: start; gap: 12px; min-height: 92px; color: #c24662; font-size: 13px; }
 .st-error-body p { margin: 0; word-break: break-word; }
-.st-secondary-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #ea4c89; border-radius: 6px; background: #fff; color: #ea4c89; cursor: pointer; font-size: 12px; }
+.st-secondary-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #30A46C; border-radius: 6px; background: #fff; color: #30A46C; cursor: pointer; font-size: 12px; }
 
 @media (prefers-color-scheme: dark) {
   .st-modal { border-color: #333; background: rgba(28,29,30,.98); color: #ddd; box-shadow: 0 12px 38px rgba(0,0,0,.5); }

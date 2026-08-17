@@ -83,6 +83,8 @@ try {
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await options.waitForSelector("text=翻译服务");
+  assert.equal(await options.locator(".options-brand img").evaluate((image) => image.naturalWidth), 512);
+  assert.equal(await options.locator(".primary-button").evaluate((button) => getComputedStyle(button).backgroundColor), "rgb(48, 164, 108)");
   const baseUrl = `http://127.0.0.1:${port}/v1`;
   await options.evaluate(async (value) => {
     await chrome.storage.local.set({
@@ -130,8 +132,10 @@ try {
   await page.waitForTimeout(500);
   const trigger = page.locator("sliding-trans").first();
   assert.equal(await trigger.count(), 1);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger")).backgroundColor), "rgb(48, 164, 108)");
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-sentence-translation")?.textContent === "冒烟测试成功", undefined, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo").naturalWidth), 512);
   assert.equal(calls, 1);
   console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
 } finally {

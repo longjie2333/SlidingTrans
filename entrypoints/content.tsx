@@ -18,6 +18,8 @@ interface TranslationRecord {
   error?: string;
 }
 
+const logoUrl = `${browser.runtime.getURL("/")}logo-round.png`;
+
 function readResultText(record: TranslationRecord): string {
   if (record.result?.translation) return record.result.translation;
   return record.partial ?? "";
@@ -68,7 +70,7 @@ function Trigger({
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >
-      {mode === "icon" ? <span className="st-logo">S</span> : null}
+      {mode === "icon" ? <img className="st-logo" src={logoUrl} alt="" /> : null}
     </button>
   );
 }
@@ -268,7 +270,7 @@ function Modal({
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="st-modal-header" onPointerDown={onHeaderPointerDown} onPointerMove={onHeaderPointerMove} onPointerUp={onHeaderPointerUp}>
-        <div className="st-brand"><span className="st-logo">S</span><span>SlidingTrans</span></div>
+        <div className="st-brand"><img className="st-logo" src={logoUrl} alt="" /><span>SlidingTrans</span></div>
         <div className="st-model">{settings.model || "未配置模型"}</div>
         <div className="st-header-actions">
           {records.length > 1 ? (

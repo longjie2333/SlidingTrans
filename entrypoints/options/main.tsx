@@ -103,7 +103,7 @@ function OptionsApp() {
   return (
     <main className="options">
       <header className="options-header">
-        <div><div className="options-brand"><span>S</span> SlidingTrans</div><p>选中文本，即刻获得 AI 翻译、词典释义和发音。</p></div>
+        <div><div className="options-brand"><img src="/logo-round.png" alt="" /> SlidingTrans</div><p>选中文本，即刻获得 AI 翻译、词典释义和发音。</p></div>
         <button className="primary-button" type="button" onClick={() => void save()}><Save size={16} /> 保存设置</button>
       </header>
       {message ? <div className={`status ${message.type}`}><Check size={15} /> {message.text}</div> : null}

@@ -32,7 +32,7 @@ function PopupApp() {
   return (
     <main className="popup">
       <header className="popup-header">
-        <div className="popup-brand"><span className="popup-logo">S</span><div><strong>SlidingTrans</strong><small>AI 划词翻译</small></div></div>
+        <div className="popup-brand"><img className="popup-logo" src="/logo-round.png" alt="" /><div><strong>SlidingTrans</strong><small>AI 划词翻译</small></div></div>
         <button className={`toggle ${settings.enabled ? "on" : ""}`} type="button" aria-label="启用或关闭" onClick={() => void update({ enabled: !settings.enabled })}><span /></button>
       </header>
       <section className="popup-section">
