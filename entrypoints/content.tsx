@@ -271,7 +271,7 @@ function Modal({
     >
       <div className="st-modal-header" onPointerDown={onHeaderPointerDown} onPointerMove={onHeaderPointerMove} onPointerUp={onHeaderPointerUp}>
         <div className="st-brand"><img className="st-logo" src={logoUrl} alt="" /><span>SlidingTrans</span></div>
-        <div className="st-model">{settings.model || "未配置模型"}</div>
+        <div className="st-model">{settings.services.find((service) => service.id === settings.activeServiceId)?.model || "未配置模型"}</div>
         <div className="st-header-actions">
           {records.length > 1 ? (
             <div className="st-history">

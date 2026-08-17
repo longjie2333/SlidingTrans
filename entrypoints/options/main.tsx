@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Check, Eye, EyeOff, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
-import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationStreamEvent } from "../../src/shared/types";
+import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
 import "./style.css";
 
 function OptionsApp() {
@@ -16,7 +16,31 @@ function OptionsApp() {
 
   useEffect(() => { void loadSettings().then(setSettings); }, []);
   if (!settings) return <main className="options loading">正在读取设置…</main>;
+  const activeService = settings.services.find((service) => service.id === settings.activeServiceId) ?? settings.services[0];
   const update = (patch: Partial<SlidingTransSettings>) => setSettings((current) => current ? { ...current, ...patch } : current);
+  const updateActiveService = (patch: Partial<TranslationService>) => {
+    if (!activeService) return;
+    update({ services: settings.services.map((service) => service.id === activeService.id ? { ...service, ...patch } : service) });
+  };
+  const createService = () => {
+    const service: TranslationService = {
+      id: crypto.randomUUID(),
+      name: `服务 ${settings.services.length + 1}`,
+      protocol: "chat-completions",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: "",
+      model: "",
+    };
+    update({ services: [...settings.services, service], activeServiceId: service.id });
+    setModels([]);
+    setMessage({ type: "success", text: "已创建服务配置，请填写后保存" });
+  };
+  const removeActiveService = () => {
+    if (!activeService || settings.services.length <= 1) return;
+    const remaining = settings.services.filter((service) => service.id !== activeService.id);
+    update({ services: remaining, activeServiceId: remaining[0]!.id });
+    setModels([]);
+  };
   const save = async () => {
     try {
       await saveSettings(settings);
@@ -110,11 +134,13 @@ function OptionsApp() {
       <section className="settings-section">
         <h2>翻译服务</h2>
         <div className="form-grid">
-          <label>协议<select value={settings.protocol} onChange={(event) => update({ protocol: event.target.value as SlidingTransSettings["protocol"] })}><option value={API_PROTOCOLS[0]}>Chat Completions</option><option value={API_PROTOCOLS[1]}>Responses</option></select></label>
-          <label>模型<div className="model-picker"><input list="model-options" value={settings.model} placeholder="例如 gpt-5-mini" onChange={(event) => update({ model: event.target.value })} /><button className="icon-button" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></button></div></label>
+          <label className="full">当前服务<div className="service-picker"><select id="service-selector" value={settings.activeServiceId} onChange={(event) => { update({ activeServiceId: event.target.value }); setModels([]); }}><option value="" disabled>选择服务</option>{settings.services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select><button className="secondary-button" type="button" onClick={createService}><Plus size={15} /> 新建</button><button className="icon-button" type="button" aria-label="删除当前服务" title="删除当前服务" disabled={settings.services.length <= 1} onClick={removeActiveService}><Trash2 size={16} /></button></div></label>
+          <label>服务名称<input value={activeService?.name ?? ""} placeholder="例如 OpenAI" onChange={(event) => updateActiveService({ name: event.target.value })} /></label>
+          <label>协议<select value={activeService?.protocol ?? API_PROTOCOLS[0]} onChange={(event) => updateActiveService({ protocol: event.target.value as TranslationService["protocol"] })}><option value={API_PROTOCOLS[0]}>Chat Completions</option><option value={API_PROTOCOLS[1]}>Responses</option></select></label>
+          <label>模型<div className="model-picker"><input list="model-options" value={activeService?.model ?? ""} placeholder="例如 gpt-5-mini" onChange={(event) => updateActiveService({ model: event.target.value })} /><button className="icon-button" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></button></div></label>
           {models.length ? <datalist id="model-options">{models.map((model) => <option key={model} value={model} />)}</datalist> : null}
-          <label className="full">API Base URL<input value={settings.baseUrl} placeholder="https://api.openai.com/v1" onChange={(event) => update({ baseUrl: event.target.value })} /></label>
-          <label className="full">API Key<div className="key-input"><input type={showKey ? "text" : "password"} value={settings.apiKey} onChange={(event) => update({ apiKey: event.target.value })} /><button type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
+          <label className="full">API Base URL<input value={activeService?.baseUrl ?? ""} placeholder="https://api.openai.com/v1" onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
+          <label className="full">API Key<div className="key-input"><input type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><button type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>
         </div>
         <p className="hint">API Key 仅保存在此浏览器的本地扩展存储中，不会同步到云端，也不会发送到 SlidingTrans。浏览器本地存储未加密，请勿在共享设备上使用。</p>
         <button className="secondary-button" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</button>

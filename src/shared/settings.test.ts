@@ -21,8 +21,20 @@ describe("settings", () => {
 
   it("accepts the default HTTPS API URL", () => {
     const settings = createDefaultSettings();
-    const { apiKey, ...contentSettings } = settings;
-    expect(parseSettings(contentSettings, apiKey).baseUrl).toBe("https://api.openai.com/v1");
-    expect(parseContentSettings(contentSettings)).not.toHaveProperty("apiKey");
+    const contentSettings = { ...settings, services: settings.services.map(({ apiKey: _, ...service }) => service) };
+    const parsed = parseSettings(contentSettings, { openai: "test-key" });
+    expect(parsed.services[0]?.baseUrl).toBe("https://api.openai.com/v1");
+    expect(parsed.services[0]?.apiKey).toBe("test-key");
+    expect(parseContentSettings(contentSettings).services[0]).not.toHaveProperty("apiKey");
+  });
+
+  it("supports several services and an active service", () => {
+    const settings = createDefaultSettings();
+    const second = { ...settings.services[0]!, id: "local", name: "本地服务", baseUrl: "https://example.com/v1" };
+    const { apiKey: _secondApiKey, ...publicSecond } = second;
+    const contentSettings = { ...settings, services: settings.services.map(({ apiKey: _, ...service }) => service).concat(publicSecond) };
+    const parsed = parseSettings({ ...contentSettings, activeServiceId: "local" }, { openai: "one", local: "two" });
+    expect(parsed.activeServiceId).toBe("local");
+    expect(parsed.services.find((service) => service.id === "local")?.apiKey).toBe("two");
   });
 });

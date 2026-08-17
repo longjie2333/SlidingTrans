@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { defineBackground } from "wxt/utils/define-background";
-import { loadSettings } from "./shared/settings";
+import { getActiveService, loadSettings } from "./shared/settings";
 import { parseModelIds } from "./shared/models";
 import { buildPrompts, extractPartialTranslation, parseTranslationResult } from "./shared/translation";
 import type {
@@ -24,17 +24,17 @@ function post(port: chrome.runtime.Port, event: TranslationStreamEvent): void {
   }
 }
 
-function getClient(settings: Awaited<ReturnType<typeof loadSettings>>): OpenAI {
-  const client = getAuthenticatedClient(settings);
-  if (!settings.model.trim()) throw new Error("请先在设置页填写模型名称");
+function getClient(service: Awaited<ReturnType<typeof getActiveService>>): OpenAI {
+  const client = getAuthenticatedClient(service);
+  if (!service.model.trim()) throw new Error("请先在设置页填写模型名称");
   return client;
 }
 
-function getAuthenticatedClient(settings: Awaited<ReturnType<typeof loadSettings>>): OpenAI {
-  if (!settings.apiKey.trim()) throw new Error("请先在设置页填写 API Key");
+function getAuthenticatedClient(service: Awaited<ReturnType<typeof getActiveService>>): OpenAI {
+  if (!service.apiKey.trim()) throw new Error("请先在设置页填写 API Key");
   return new OpenAI({
-    apiKey: settings.apiKey,
-    baseURL: settings.baseUrl,
+    apiKey: service.apiKey,
+    baseURL: service.baseUrl,
     dangerouslyAllowBrowser: true,
     maxRetries: 0,
     timeout: 30_000,
@@ -132,7 +132,8 @@ async function runTranslation(
   activeRequests.set(request.requestId, { controller, port });
   try {
     const settings = await loadSettings();
-    const client = getClient(settings);
+    const service = getActiveService(settings);
+    const client = getClient(service);
     let latestPartial = "";
     const onText = (buffer: string) => {
       const partial = extractPartialTranslation(buffer);
@@ -140,9 +141,9 @@ async function runTranslation(
       latestPartial = partial;
       post(port, { type: "partial", requestId: request.requestId, translation: partial });
     };
-    const raw = settings.protocol === "responses"
-      ? await streamResponse(client, settings.model, request, request.targetLanguage, controller.signal, onText)
-      : await streamChatCompletion(client, settings.model, request, request.targetLanguage, controller.signal, onText);
+    const raw = service.protocol === "responses"
+      ? await streamResponse(client, service.model, request, request.targetLanguage, controller.signal, onText)
+      : await streamChatCompletion(client, service.model, request, request.targetLanguage, controller.signal, onText);
     const result = parseTranslationResult(raw);
     post(port, { type: "complete", requestId: request.requestId, result });
   } catch (error) {
@@ -196,7 +197,8 @@ export default defineBackground(() => {
 async function listModels(requestId: string, port: chrome.runtime.Port): Promise<void> {
   try {
     const settings = await loadSettings();
-    const models = parseModelIds(await getAuthenticatedClient(settings).models.list());
+    const service = getActiveService(settings);
+    const models = parseModelIds(await getAuthenticatedClient(service).models.list());
     if (!models.length) throw new Error("接口没有返回可用模型");
     post(port, { type: "models", requestId, models });
   } catch (error) {
@@ -207,6 +209,7 @@ async function listModels(requestId: string, port: chrome.runtime.Port): Promise
 async function testConnection(requestId: string, port: chrome.runtime.Port): Promise<void> {
   try {
     const settings = await loadSettings();
+    const service = getActiveService(settings);
     const request: TranslationRequest = {
       type: "translate",
       requestId,
@@ -215,14 +218,14 @@ async function testConnection(requestId: string, port: chrome.runtime.Port): Pro
       targetLanguage: settings.targetLanguage,
     };
     const controller = new AbortController();
-    const client = getClient(settings);
+    const client = getClient(service);
     const prompts = buildPrompts(request.text, "", settings.targetLanguage);
-    if (settings.protocol === "responses") {
-      await client.responses.create({ model: settings.model, instructions: prompts.system, input: prompts.user }, { signal: controller.signal });
+    if (service.protocol === "responses") {
+      await client.responses.create({ model: service.model, instructions: prompts.system, input: prompts.user }, { signal: controller.signal });
     } else {
-      await client.chat.completions.create({ model: settings.model, messages: [{ role: "system", content: prompts.system }, { role: "user", content: prompts.user }] }, { signal: controller.signal });
+      await client.chat.completions.create({ model: service.model, messages: [{ role: "system", content: prompts.system }, { role: "user", content: prompts.user }] }, { signal: controller.signal });
     }
-    post(port, { type: "connection-ok", requestId, model: settings.model });
+    post(port, { type: "connection-ok", requestId, model: service.model });
   } catch (error) {
     post(port, { type: "error", requestId, message: errorMessage(error), ...(errorCode(error) ? { code: errorCode(error) } : {}) });
   }

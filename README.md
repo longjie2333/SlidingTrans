@@ -19,7 +19,7 @@ npm run build
 
 在 Chrome 或 Edge 的扩展管理页开启开发者模式，选择“加载已解压的扩展”，目录为 `.output/chrome-mv3`。如果需要翻译本地文件，还需要在扩展详情中开启“允许访问文件网址”。
 
-首次使用时打开扩展设置，填写 OpenAI 兼容接口的 Base URL、协议、模型和 API Key。支持 Chat Completions 与 Responses 的流式接口。API Key 只保存在浏览器本地扩展存储中，不会同步到云端。
+首次使用时打开扩展设置，创建或选择翻译服务，填写 OpenAI 兼容接口的 Base URL、协议、模型和 API Key。支持保存多个服务配置并随时切换，支持 Chat Completions 与 Responses 的流式接口。API Key 只保存在浏览器本地扩展存储中，不会同步到云端。
 
 ## 使用
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ExternalLink, Settings2 } from "lucide-react";
-import { isHostBlocked, loadSettings, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
+import { getActiveService, isHostBlocked, loadSettings, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import type { SlidingTransSettings } from "../../src/shared/types";
 import "./style.css";
 
@@ -16,6 +16,7 @@ function PopupApp() {
     });
   }, []);
   if (!settings) return <main className="popup loading">正在读取设置…</main>;
+  const activeService = getActiveService(settings);
   const siteBlocked = hostname ? isHostBlocked(hostname, settings.blockedHosts) : false;
   const update = async (patch: Partial<SlidingTransSettings>) => {
     const next = { ...settings, ...patch };
@@ -45,7 +46,7 @@ function PopupApp() {
         <div><strong>{hostname || "当前页面"}</strong><small>{hostname ? (siteBlocked ? "当前网站已禁用" : "当前网站已启用") : "浏览器内部页面不支持注入"}</small></div>
         {hostname ? <button className={`site-toggle ${siteBlocked ? "blocked" : ""}`} type="button" onClick={toggleSite}>{siteBlocked ? "启用" : "禁用"}</button> : null}
       </section>
-      {!settings.apiKey || !settings.model ? <div className="setup-notice">请先在设置页填写 API Key 和模型名称。</div> : null}
+      {!activeService.apiKey || !activeService.model ? <div className="setup-notice">请先在设置页填写 API Key 和模型名称。</div> : null}
       <footer className="popup-footer">
         <button type="button" onClick={() => void browser.runtime.openOptionsPage()}><Settings2 size={15} /> 设置</button>
         <a href="https://github.com/" target="_blank" rel="noreferrer"><ExternalLink size={14} /> SlidingTrans</a>

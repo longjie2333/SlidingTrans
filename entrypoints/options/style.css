@@ -16,6 +16,10 @@ input, select { width: 100%; min-height: 36px; padding: 7px 10px; border: 1px so
 input:focus, select:focus { border-color: #30A46C; box-shadow: 0 0 0 3px rgba(48,164,108,.16); }
 .model-picker { display: flex; align-items: center; }
 .model-picker input { border-radius: 6px 0 0 6px; }
+.service-picker { display: flex; align-items: center; gap: 8px; }
+.service-picker select { flex: 1; }
+.service-picker .secondary-button { white-space: nowrap; }
+.service-picker .icon-button { min-height: 36px; border-left: 1px solid #d9dbdd; border-radius: 6px; }
 .icon-button { display: grid; place-items: center; min-width: 38px; min-height: 36px; padding: 0 10px; border: 1px solid #d9dbdd; border-left: 0; border-radius: 0 6px 6px 0; background: #f8f8f8; color: #777; cursor: pointer; }
 .icon-button:hover { color: #30A46C; }
 .icon-button:disabled { opacity: .6; cursor: wait; }

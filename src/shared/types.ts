@@ -6,13 +6,22 @@ export type ApiProtocol = (typeof API_PROTOCOLS)[number];
 export type TriggerMode = (typeof TRIGGER_MODES)[number];
 export type TriggerActivation = (typeof TRIGGER_ACTIVATIONS)[number];
 
-export interface SlidingTransSettings {
-  enabled: boolean;
-  targetLanguage: string;
+export interface TranslationService {
+  id: string;
+  name: string;
   protocol: ApiProtocol;
   baseUrl: string;
   apiKey: string;
   model: string;
+}
+
+export type PublicTranslationService = Omit<TranslationService, "apiKey">;
+
+export interface SlidingTransSettings {
+  enabled: boolean;
+  targetLanguage: string;
+  services: TranslationService[];
+  activeServiceId: string;
   triggerMode: TriggerMode;
   triggerActivation: TriggerActivation;
   autoReadWord: boolean;
@@ -20,7 +29,7 @@ export interface SlidingTransSettings {
   blockedHosts: string[];
 }
 
-export type ContentSettings = Omit<SlidingTransSettings, "apiKey">;
+export type ContentSettings = Omit<SlidingTransSettings, "services"> & { services: PublicTranslationService[] };
 
 export interface ViewportRect {
   top: number;

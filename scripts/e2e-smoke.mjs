@@ -98,21 +98,25 @@ try {
       slidingTransSettings: {
         enabled: true,
         targetLanguage: "zh-CN",
-        protocol: "chat-completions",
-        baseUrl: value,
-        model: "mock-model",
+        services: [{ id: "mock", name: "Mock 服务", protocol: "chat-completions", baseUrl: value, model: "mock-model" }],
+        activeServiceId: "mock",
         triggerMode: "mini",
         triggerActivation: "click",
         autoReadWord: false,
         enableWhenSameLanguage: true,
         blockedHosts: [],
       },
-      slidingTransApiKey: "e2e-key",
+      slidingTransServiceKeys: { mock: "e2e-key" },
     });
   }, baseUrl);
 
   await options.reload();
   await options.waitForSelector("text=翻译服务");
+  assert.deepEqual(await options.locator("#service-selector option").evaluateAll((items) => items.map((item) => item.textContent)), ["选择服务", "Mock 服务"]);
+  await options.getByRole("button", { name: "新建" }).click();
+  assert.equal(await options.locator("#service-selector option").count(), 3);
+  await options.locator("#service-selector").selectOption("mock");
+  await options.getByRole("button", { name: "保存设置" }).click();
   await options.getByRole("button", { name: "获取可用模型" }).click();
   await options.waitForSelector("text=已获取 2 个模型");
   const modelOptions = await options.locator("#model-options option").evaluateAll((items) => items.map((item) => item.value));
@@ -121,6 +125,8 @@ try {
 
   const publicSettings = await options.evaluate(async () => (await chrome.storage.local.get("slidingTransSettings")).slidingTransSettings);
   assert.equal(Object.hasOwn(publicSettings, "apiKey"), false);
+  assert.equal(Object.hasOwn(publicSettings.services[0], "apiKey"), false);
+  assert.equal(publicSettings.activeServiceId, "mock");
 
   const page = await context.newPage();
   await page.goto(`http://127.0.0.1:${port}/page`);

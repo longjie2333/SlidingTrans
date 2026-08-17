@@ -1,25 +1,46 @@
 import { z } from "zod";
-import type { ContentSettings, SlidingTransSettings } from "./types";
+import type { ContentSettings, PublicTranslationService, SlidingTransSettings, TranslationService } from "./types";
 
 export const SETTINGS_KEY = "slidingTransSettings";
-export const API_KEY_KEY = "slidingTransApiKey";
+export const SERVICE_KEYS_KEY = "slidingTransServiceKeys";
 export const PAUSED_HOSTS_KEY = "slidingTransPausedHosts";
 
 const apiKeySchema = z.string().max(4096);
-const settingsSchema = z.object({
-  enabled: z.boolean(),
-  targetLanguage: z.string().trim().min(2).max(32),
+const serviceIdSchema = z.string().trim().min(1).max(100);
+const serviceNameSchema = z.string().trim().min(1).max(100);
+const serviceSchema = z.object({
+  id: serviceIdSchema,
+  name: serviceNameSchema,
   protocol: z.enum(["chat-completions", "responses"]),
   baseUrl: z.url({ protocol: /^(https?)$/ }),
   apiKey: apiKeySchema,
   model: z.string().trim().max(200),
+});
+const publicServiceSchema = serviceSchema.omit({ apiKey: true });
+const settingsSchema = z.object({
+  enabled: z.boolean(),
+  targetLanguage: z.string().trim().min(2).max(32),
+  services: z.array(serviceSchema).min(1).max(20),
+  activeServiceId: serviceIdSchema,
   triggerMode: z.enum(["mini", "icon", "direct"]),
   triggerActivation: z.enum(["hover", "click"]),
   autoReadWord: z.boolean(),
   enableWhenSameLanguage: z.boolean(),
   blockedHosts: z.array(z.string().trim().min(1).max(253)).max(500),
 });
-const contentSettingsSchema = settingsSchema.omit({ apiKey: true });
+const contentSettingsSchema = settingsSchema.omit({ services: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
+const serviceKeysSchema = z.record(serviceIdSchema, apiKeySchema);
+
+function createDefaultService(): TranslationService {
+  return {
+    id: "openai",
+    name: "OpenAI",
+    protocol: "chat-completions",
+    baseUrl: "https://api.openai.com/v1",
+    apiKey: "",
+    model: "",
+  };
+}
 
 export const TARGET_LANGUAGES = [
   ["zh-CN", "简体中文"],
@@ -45,13 +66,12 @@ function normalizeUiLanguage(language: string): string {
 }
 
 export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSettings {
+  const service = createDefaultService();
   return {
     enabled: true,
     targetLanguage: normalizeUiLanguage(uiLanguage),
-    protocol: "chat-completions",
-    baseUrl: "https://api.openai.com/v1",
-    apiKey: "",
-    model: "",
+    services: [service],
+    activeServiceId: service.id,
     triggerMode: "mini",
     triggerActivation: "hover",
     autoReadWord: false,
@@ -61,8 +81,8 @@ export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSetting
 }
 
 export function createDefaultContentSettings(uiLanguage = "zh-CN"): ContentSettings {
-  const { apiKey: _, ...settings } = createDefaultSettings(uiLanguage);
-  return settings;
+  const settings = createDefaultSettings(uiLanguage);
+  return { ...settings, services: settings.services.map(({ apiKey: _, ...service }) => service) };
 }
 
 export function parseContentSettings(
@@ -75,20 +95,20 @@ export function parseContentSettings(
 
 export function parseSettings(
   value: unknown,
-  apiKey: unknown,
+  serviceKeys: unknown,
   defaults = createDefaultSettings(),
 ): SlidingTransSettings {
   const content = contentSettingsSchema.safeParse(value);
-  const parsedApiKey = apiKeySchema.safeParse(apiKey);
-  return content.success && parsedApiKey.success
-    ? { ...content.data, apiKey: parsedApiKey.data }
-    : defaults;
+  const parsedKeys = serviceKeysSchema.safeParse(serviceKeys);
+  if (!content.success || !parsedKeys.success || !content.data.services.some((service) => service.id === content.data.activeServiceId)) return defaults;
+  const services = content.data.services.map((service) => ({ ...service, apiKey: parsedKeys.data[service.id] ?? "" }));
+  return { ...content.data, services };
 }
 
 export async function loadSettings(): Promise<SlidingTransSettings> {
   const defaults = createDefaultSettings(browser.i18n.getUILanguage());
-  const stored = await browser.storage.local.get([SETTINGS_KEY, API_KEY_KEY]);
-  return parseSettings(stored[SETTINGS_KEY], stored[API_KEY_KEY] ?? "", defaults);
+  const stored = await browser.storage.local.get([SETTINGS_KEY, SERVICE_KEYS_KEY]);
+  return parseSettings(stored[SETTINGS_KEY], stored[SERVICE_KEYS_KEY] ?? {}, defaults);
 }
 
 export async function loadContentSettings(): Promise<ContentSettings> {
@@ -99,16 +119,24 @@ export async function loadContentSettings(): Promise<ContentSettings> {
 
 export async function saveSettings(settings: SlidingTransSettings): Promise<void> {
   const parsed = settingsSchema.parse(settings);
-  const { apiKey, ...contentSettings } = parsed;
+  if (!parsed.services.some((service) => service.id === parsed.activeServiceId)) throw new Error("请选择有效的翻译服务");
+  const services = parsed.services.map(({ apiKey: _, ...service }) => service);
+  const serviceKeys = Object.fromEntries(parsed.services.map((service) => [service.id, service.apiKey]));
   await browser.storage.local.set({
-    [SETTINGS_KEY]: contentSettings,
-    [API_KEY_KEY]: apiKey,
+    [SETTINGS_KEY]: { ...parsed, services },
+    [SERVICE_KEYS_KEY]: serviceKeys,
   });
 }
 
 export async function saveContentSettings(settings: ContentSettings): Promise<void> {
   const parsed = contentSettingsSchema.parse(settings);
   await browser.storage.local.set({ [SETTINGS_KEY]: parsed });
+}
+
+export function getActiveService(settings: SlidingTransSettings): TranslationService {
+  const service = settings.services.find((candidate) => candidate.id === settings.activeServiceId);
+  if (!service) throw new Error("请选择有效的翻译服务");
+  return service;
 }
 
 export function normalizeHost(value: string): string {
