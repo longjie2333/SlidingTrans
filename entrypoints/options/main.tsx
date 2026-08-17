@@ -7,7 +7,7 @@ import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSet
 import { Button } from "../../src/ui/button";
 import { Card } from "../../src/ui/card";
 import { Input } from "../../src/ui/input";
-import { Select } from "../../src/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../src/ui/select";
 import "../../src/ui/tailwind.css";
 import "./style.css";
 
@@ -158,23 +158,23 @@ function OptionsApp() {
       <Card className="settings-section">
         <h2>翻译服务</h2>
         <div className="form-grid">
-          <label className="full">当前服务<div className="service-picker"><Select id="service-selector" value={settings.activeServiceId} onChange={(event) => { update({ activeServiceId: event.target.value }); setModels([]); }}><option value="" disabled>选择服务</option>{settings.services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</Select><Button className="secondary-button" variant="outline" size="sm" type="button" onClick={createService}><Plus size={15} /> 新建</Button><Button className="icon-button" variant="ghost" size="icon" type="button" aria-label="删除当前服务" title="删除当前服务" disabled={settings.services.length <= 1} onClick={removeActiveService}><Trash2 size={16} /></Button></div></label>
+          <label className="full">当前服务<div className="service-picker"><Select value={settings.activeServiceId} onValueChange={(value) => { update({ activeServiceId: value }); setModels([]); }}><SelectTrigger id="service-selector"><SelectValue placeholder="选择服务" /></SelectTrigger><SelectContent>{settings.services.map((service) => <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>)}</SelectContent></Select><Button className="secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" size="sm" type="button" onClick={createService}><Plus size={15} /> 新建</Button><Button className="icon-button" variant="ghost" size="icon" type="button" aria-label="删除当前服务" title="删除当前服务" disabled={settings.services.length <= 1} onClick={removeActiveService}><Trash2 size={16} /></Button></div></label>
           <label>服务名称<Input value={activeService?.name ?? ""} placeholder="例如 OpenAI" onChange={(event) => updateActiveService({ name: event.target.value })} /></label>
-          <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onChange={(event) => updateActiveService({ protocol: event.target.value as TranslationService["protocol"] })}><option value={API_PROTOCOLS[0]}>Chat Completions</option><option value={API_PROTOCOLS[1]}>Responses</option></Select></label>
+          <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onValueChange={(value) => updateActiveService({ protocol: value as TranslationService["protocol"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={API_PROTOCOLS[0]}>Chat Completions</SelectItem><SelectItem value={API_PROTOCOLS[1]}>Responses</SelectItem></SelectContent></Select></label>
           <label>模型<div className="model-picker"><Input list="model-options" value={activeService?.model ?? ""} placeholder="例如 gpt-5-mini" onChange={(event) => updateActiveService({ model: event.target.value })} /><Button className="icon-button" variant="ghost" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div></label>
           {models.length ? <datalist id="model-options">{models.map((model) => <option key={model} value={model} />)}</datalist> : null}
           <label className="full">API Base URL<Input value={activeService?.baseUrl ?? ""} placeholder="https://api.openai.com/v1" onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
           <label className="full">API Key<div className="key-input"><Input type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button variant="ghost" size="icon" type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label>
         </div>
         <p className="hint">API Key 仅保存在此浏览器的本地扩展存储中，不会同步到云端，也不会发送到 SlidingTrans。浏览器本地存储未加密，请勿在共享设备上使用。</p>
-        <Button className="secondary-button" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button>
+        <Button className="secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button>
       </Card>
       <Card className="settings-section">
         <h2>划词翻译</h2>
         <div className="form-grid">
-          <label>目标语言<Select value={settings.targetLanguage} onChange={(event) => update({ targetLanguage: event.target.value })}>{TARGET_LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></label>
-          <label>触发方式<Select value={settings.triggerMode} onChange={(event) => update({ triggerMode: event.target.value as SlidingTransSettings["triggerMode"] })}>{TRIGGER_MODES.map((mode) => <option key={mode} value={mode}>{mode === "mini" ? "迷你圆点" : mode === "icon" ? "图标" : "直接触发"}</option>)}</Select></label>
-          {settings.triggerMode !== "direct" ? <label>图标触发<Select value={settings.triggerActivation} onChange={(event) => update({ triggerActivation: event.target.value as SlidingTransSettings["triggerActivation"] })}>{TRIGGER_ACTIVATIONS.map((activation) => <option key={activation} value={activation}>{activation === "hover" ? "悬浮 200ms" : "点击"}</option>)}</Select></label> : null}
+          <label>目标语言<Select value={settings.targetLanguage} onValueChange={(value) => update({ targetLanguage: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TARGET_LANGUAGES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></label>
+          <label>触发方式<Select value={settings.triggerMode} onValueChange={(value) => update({ triggerMode: value as SlidingTransSettings["triggerMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRIGGER_MODES.map((mode) => <SelectItem key={mode} value={mode}>{mode === "mini" ? "迷你圆点" : mode === "icon" ? "图标" : "直接触发"}</SelectItem>)}</SelectContent></Select></label>
+          {settings.triggerMode !== "direct" ? <label>图标触发<Select value={settings.triggerActivation} onValueChange={(value) => update({ triggerActivation: value as SlidingTransSettings["triggerActivation"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRIGGER_ACTIVATIONS.map((activation) => <SelectItem key={activation} value={activation}>{activation === "hover" ? "悬浮 200ms" : "点击"}</SelectItem>)}</SelectContent></Select></label> : null}
         </div>
         <div className="check-list">
           <label><input type="checkbox" checked={settings.enabled} onChange={(event) => update({ enabled: event.target.checked })} /> 启用划词翻译</label>
@@ -185,7 +185,7 @@ function OptionsApp() {
       <Card className="settings-section">
         <h2>禁用网站</h2>
         <p className="hint">匹配域名及其子域名。浏览器内部页面始终不会注入扩展。</p>
-        <div className="host-add"><Input value={newHost} placeholder="example.com" onChange={(event) => setNewHost(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addHost(); }} /><Button className="secondary-button" variant="outline" type="button" onClick={addHost}><Plus size={15} /> 添加</Button></div>
+        <div className="host-add"><Input value={newHost} placeholder="example.com" onChange={(event) => setNewHost(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addHost(); }} /><Button className="secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" onClick={addHost}><Plus size={15} /> 添加</Button></div>
         <div className="host-list">{settings.blockedHosts.map((host) => <div className="host-row" key={host}><span>{host}</span><Button variant="ghost" size="icon" type="button" aria-label={`移除 ${host}`} onClick={() => update({ blockedHosts: settings.blockedHosts.filter((value) => value !== host) })}><Trash2 size={15} /></Button></div>)}</div>
       </Card>
     </main>

@@ -4,7 +4,7 @@ import { ExternalLink, Settings2 } from "lucide-react";
 import { getActiveService, isHostBlocked, loadSettings, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import type { SlidingTransSettings } from "../../src/shared/types";
 import { Button } from "../../src/ui/button";
-import { Select } from "../../src/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../src/ui/select";
 import "../../src/ui/tailwind.css";
 import "./style.css";
 
@@ -41,8 +41,9 @@ function PopupApp() {
       </header>
       <section className="popup-section">
         <label htmlFor="target-language">目标语言</label>
-        <Select id="target-language" value={settings.targetLanguage} onChange={(event) => void update({ targetLanguage: event.target.value })}>
-          {TARGET_LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        <Select value={settings.targetLanguage} onValueChange={(value) => void update({ targetLanguage: value })}>
+          <SelectTrigger id="target-language"><SelectValue /></SelectTrigger>
+          <SelectContent>{TARGET_LANGUAGES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
         </Select>
       </section>
       <section className="popup-section popup-site-section">

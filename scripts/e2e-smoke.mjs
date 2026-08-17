@@ -113,10 +113,11 @@ try {
 
   await options.reload();
   await options.waitForSelector("text=翻译服务");
-  assert.deepEqual(await options.locator("#service-selector option").evaluateAll((items) => items.map((item) => item.textContent)), ["选择服务", "Mock 服务"]);
+  assert.equal((await options.locator("#service-selector").textContent())?.trim(), "Mock 服务");
   await options.getByRole("button", { name: "新建" }).click();
-  assert.equal(await options.locator("#service-selector option").count(), 3);
-  await options.locator("#service-selector").selectOption("mock");
+  await options.locator("#service-selector").click();
+  assert.equal(await options.getByRole("option").count(), 2);
+  await options.getByRole("option", { name: "Mock 服务" }).click();
   await options.waitForSelector("text=设置已自动保存");
   await options.getByRole("button", { name: "获取可用模型" }).click();
   await options.waitForSelector("text=已获取 2 个模型");
