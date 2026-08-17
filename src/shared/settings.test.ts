@@ -7,6 +7,7 @@ describe("settings", () => {
     expect(settings.targetLanguage).toBe("zh-CN");
     expect(settings.triggerMode).toBe("mini");
     expect(settings.triggerActivation).toBe("hover");
+    expect(settings.systemPrompt).toContain("{{targetLanguage}}");
   });
 
   it("matches a blocked domain and its subdomains", () => {
@@ -36,5 +37,6 @@ describe("settings", () => {
     const parsed = parseSettings({ ...contentSettings, activeServiceId: "local" }, { openai: "one", local: "two" });
     expect(parsed.activeServiceId).toBe("local");
     expect(parsed.services.find((service) => service.id === "local")?.apiKey).toBe("two");
+    expect(parseContentSettings(contentSettings)).not.toHaveProperty("systemPrompt");
   });
 });

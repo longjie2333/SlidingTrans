@@ -40,6 +40,7 @@ let calls = 0;
 let modelCalls = 0;
 let holdNextTranslation = true;
 let slowRequestAborted = false;
+let observedSystemPrompt = "";
 const server = http.createServer((request, response) => {
   if (request.url === "/page") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -57,6 +58,16 @@ const server = http.createServer((request, response) => {
   }
   if (request.url?.endsWith("/chat/completions")) {
     calls += 1;
+    let requestBody = "";
+    request.on("data", (chunk) => { requestBody += chunk; });
+    request.on("end", () => {
+      try {
+        const parsed = JSON.parse(requestBody);
+        observedSystemPrompt = parsed.messages?.find((message) => message.role === "system")?.content ?? observedSystemPrompt;
+      } catch {
+        // The response stream still exercises the request cancellation path.
+      }
+    });
     response.writeHead(200, {
       "content-type": "text/event-stream",
       "access-control-allow-origin": "*",
@@ -162,12 +173,17 @@ try {
   const modelControlsBox = await options.locator(".model-choice-controls").boundingBox();
   const customModelBox = await options.getByPlaceholder("输入自定义模型名称").boundingBox();
   assert.equal(customModelBox.x > modelControlsBox.x, true);
+  assert.equal(customModelBox.x - (modelControlsBox.x + modelControlsBox.width) >= 12, true);
   assert.equal(Math.abs(customModelBox.y - modelControlsBox.y) < 8, true);
   await options.getByPlaceholder("输入自定义模型名称").fill("custom-model");
   const apiKeyBox = await options.locator(".key-input").boundingBox();
   const connectionButtonBox = await options.getByRole("button", { name: "测试连接" }).boundingBox();
+  const connectionRowBox = await options.locator(".connection-row").boundingBox();
+  const serviceDetailsBox = await options.locator(".service-details").boundingBox();
   assert.equal(connectionButtonBox.x > apiKeyBox.x, true);
   assert.equal(Math.abs(connectionButtonBox.y - apiKeyBox.y) < 8, true);
+  assert.equal(connectionRowBox.width >= serviceDetailsBox.width - 2, true);
+  await options.getByRole("textbox", { name: "系统提示词" }).fill("自定义提示词 {{targetLanguage}}");
   await options.waitForTimeout(500);
   assert.equal(modelCalls, 1);
 
@@ -176,6 +192,7 @@ try {
   assert.equal(Object.hasOwn(publicSettings.services[0], "apiKey"), false);
   assert.equal(publicSettings.activeServiceId, "mock");
   assert.equal(publicSettings.services.find((service) => service.id === "mock").model, "custom-model");
+  assert.equal(publicSettings.systemPrompt, "自定义提示词 {{targetLanguage}}");
 
   const page = await context.newPage();
   await page.goto(`http://127.0.0.1:${port}/page`);
@@ -211,6 +228,7 @@ try {
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-sentence-translation")?.textContent === "冒烟测试成功", undefined, { timeout: 5000 });
   assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo").naturalWidth), 512);
   assert.equal(calls, 2);
+  assert.equal(observedSystemPrompt, "自定义提示词 zh-CN");
   console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
 } finally {
   await context.close();

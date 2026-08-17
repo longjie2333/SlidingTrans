@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ContentSettings, PublicTranslationService, SlidingTransSettings, TranslationService } from "./types";
+import { SELECTION_SYSTEM_PROMPT } from "./translation";
 
 export const SETTINGS_KEY = "slidingTransSettings";
 export const SERVICE_KEYS_KEY = "slidingTransServiceKeys";
@@ -20,6 +21,7 @@ const publicServiceSchema = serviceSchema.omit({ apiKey: true });
 const settingsSchema = z.object({
   enabled: z.boolean(),
   targetLanguage: z.string().trim().min(2).max(32),
+  systemPrompt: z.string().trim().min(1).max(20000).default(SELECTION_SYSTEM_PROMPT),
   services: z.array(serviceSchema).min(1).max(20),
   activeServiceId: serviceIdSchema,
   triggerMode: z.enum(["mini", "icon", "direct"]),
@@ -28,7 +30,8 @@ const settingsSchema = z.object({
   enableWhenSameLanguage: z.boolean(),
   blockedHosts: z.array(z.string().trim().min(1).max(253)).max(500),
 });
-const contentSettingsSchema = settingsSchema.omit({ services: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
+const contentSettingsSchema = settingsSchema.omit({ services: true, systemPrompt: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
+const storedSettingsSchema = settingsSchema.omit({ services: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
 const serviceKeysSchema = z.record(serviceIdSchema, apiKeySchema);
 
 function createDefaultService(): TranslationService {
@@ -70,6 +73,7 @@ export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSetting
   return {
     enabled: true,
     targetLanguage: normalizeUiLanguage(uiLanguage),
+    systemPrompt: SELECTION_SYSTEM_PROMPT,
     services: [service],
     activeServiceId: service.id,
     triggerMode: "mini",
@@ -82,7 +86,8 @@ export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSetting
 
 export function createDefaultContentSettings(uiLanguage = "zh-CN"): ContentSettings {
   const settings = createDefaultSettings(uiLanguage);
-  return { ...settings, services: settings.services.map(({ apiKey: _, ...service }) => service) };
+  const { systemPrompt: _, ...contentSettings } = settings;
+  return { ...contentSettings, services: settings.services.map(({ apiKey: _apiKey, ...service }) => service) };
 }
 
 export function parseContentSettings(
@@ -98,7 +103,7 @@ export function parseSettings(
   serviceKeys: unknown,
   defaults = createDefaultSettings(),
 ): SlidingTransSettings {
-  const content = contentSettingsSchema.safeParse(value);
+  const content = storedSettingsSchema.safeParse(value);
   const parsedKeys = serviceKeysSchema.safeParse(serviceKeys);
   if (!content.success || !parsedKeys.success || !content.data.services.some((service) => service.id === content.data.activeServiceId)) return defaults;
   const services = content.data.services.map((service) => ({ ...service, apiKey: parsedKeys.data[service.id] ?? "" }));

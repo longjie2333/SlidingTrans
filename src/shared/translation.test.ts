@@ -20,4 +20,8 @@ describe("selection translation response", () => {
     expect(extractPartialTranslation('{"kind":"text","translation":"Hello')).toBe("Hello");
     expect(buildPrompts("Hello", "A nearby sentence", "简体中文").user).toContain("A nearby sentence");
   });
+
+  it("uses a custom system prompt and replaces the target language token", () => {
+    expect(buildPrompts("Hello", "", "日语", "自定义 {{targetLanguage}}").system).toBe("自定义 日语");
+  });
 });

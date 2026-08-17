@@ -70,10 +70,11 @@ async function streamChatCompletion(
   model: string,
   request: TranslationRequest,
   targetLanguage: string,
+  systemPrompt: string,
   signal: AbortSignal,
   onText: (value: string) => void,
 ): Promise<string> {
-  const prompts = buildPrompts(request.text, request.contextText, targetLanguage);
+  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt);
   const stream = await client.chat.completions.create(
     {
       model,
@@ -101,10 +102,11 @@ async function streamResponse(
   model: string,
   request: TranslationRequest,
   targetLanguage: string,
+  systemPrompt: string,
   signal: AbortSignal,
   onText: (value: string) => void,
 ): Promise<string> {
-  const prompts = buildPrompts(request.text, request.contextText, targetLanguage);
+  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt);
   const stream = await client.responses.create(
     {
       model,
@@ -142,8 +144,8 @@ async function runTranslation(
       post(port, { type: "partial", requestId: request.requestId, translation: partial });
     };
     const raw = service.protocol === "responses"
-      ? await streamResponse(client, service.model, request, request.targetLanguage, controller.signal, onText)
-      : await streamChatCompletion(client, service.model, request, request.targetLanguage, controller.signal, onText);
+      ? await streamResponse(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText)
+      : await streamChatCompletion(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText);
     const result = parseTranslationResult(raw);
     post(port, { type: "complete", requestId: request.requestId, result });
   } catch (error) {
@@ -219,7 +221,7 @@ async function testConnection(requestId: string, port: chrome.runtime.Port): Pro
     };
     const controller = new AbortController();
     const client = getClient(service);
-    const prompts = buildPrompts(request.text, "", settings.targetLanguage);
+    const prompts = buildPrompts(request.text, "", settings.targetLanguage, settings.systemPrompt);
     if (service.protocol === "responses") {
       await client.responses.create({ model: service.model, instructions: prompts.system, input: prompts.user }, { signal: controller.signal });
     } else {

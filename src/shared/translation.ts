@@ -34,9 +34,9 @@ All explanations, definitions, examples, contextualAnalysis, and translation mus
 Use this exact shape:
 {"kind":"word|text","sourceLanguage":"en","translation":"...","phonetic":"...","definitions":[{"partOfSpeech":"noun","meaning":"...","example":{"source":"...","target":"..."}}],"contextualAnalysis":"..."}`;
 
-export function buildPrompts(text: string, contextText: string, targetLanguage: string) {
+export function buildPrompts(text: string, contextText: string, targetLanguage: string, systemPrompt = SELECTION_SYSTEM_PROMPT) {
   return {
-    system: SELECTION_SYSTEM_PROMPT.replaceAll("{{targetLanguage}}", targetLanguage),
+    system: systemPrompt.replaceAll("{{targetLanguage}}", targetLanguage),
     user: `[Selected text]\n${text}\n\n[Nearby context]\n${contextText || "(none)"}`,
   };
 }

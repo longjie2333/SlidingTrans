@@ -20,6 +20,7 @@ export type PublicTranslationService = Omit<TranslationService, "apiKey">;
 export interface SlidingTransSettings {
   enabled: boolean;
   targetLanguage: string;
+  systemPrompt: string;
   services: TranslationService[];
   activeServiceId: string;
   triggerMode: TriggerMode;
@@ -29,7 +30,7 @@ export interface SlidingTransSettings {
   blockedHosts: string[];
 }
 
-export type ContentSettings = Omit<SlidingTransSettings, "services"> & { services: PublicTranslationService[] };
+export type ContentSettings = Omit<SlidingTransSettings, "services" | "systemPrompt"> & { services: PublicTranslationService[] };
 
 export interface ViewportRect {
   top: number;

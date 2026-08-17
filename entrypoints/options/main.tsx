@@ -11,6 +11,7 @@ import { Checkbox } from "../../src/ui/checkbox";
 import { Input } from "../../src/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../src/ui/select";
 import { Toaster } from "../../src/ui/sonner";
+import { Textarea } from "../../src/ui/textarea";
 import "../../src/ui/tailwind.css";
 import "./style.css";
 
@@ -215,6 +216,10 @@ function OptionsApp() {
           <label><Checkbox checked={settings.autoReadWord} onCheckedChange={(checked) => update({ autoReadWord: checked === true })} /> 单词结果自动朗读</label>
           <label><Checkbox checked={settings.enableWhenSameLanguage} onCheckedChange={(checked) => update({ enableWhenSameLanguage: checked === true })} /> 原文与目标语言相同时仍允许查询</label>
         </div>
+      </Card>
+      <Card className="settings-section system-prompt-section">
+        <h2>系统提示词</h2>
+        <Textarea className="system-prompt-input" value={settings.systemPrompt} rows={10} onChange={(event) => update({ systemPrompt: event.target.value })} aria-label="系统提示词" />
       </Card>
       <Card className="settings-section">
         <h2>禁用网站</h2>
