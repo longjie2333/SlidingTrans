@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Check, Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { play } from "cuelume";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
 import "./style.css";
@@ -14,6 +15,7 @@ function OptionsApp() {
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const hasAutoSaved = useRef(false);
 
   useEffect(() => {
     void loadSettings().then((value) => {
@@ -25,8 +27,15 @@ function OptionsApp() {
     if (!loaded || !settings) return;
     const timeoutId = window.setTimeout(() => {
       void saveSettings(settings)
-        .then(() => setMessage({ type: "success", text: "设置已自动保存" }))
-        .catch((error) => setMessage({ type: "error", text: error instanceof Error ? error.message : "设置无效" }));
+        .then(() => {
+          if (hasAutoSaved.current) play("success");
+          hasAutoSaved.current = true;
+          setMessage({ type: "success", text: "设置已自动保存" });
+        })
+        .catch((error) => {
+          play("error");
+          setMessage({ type: "error", text: error instanceof Error ? error.message : "设置无效" });
+        });
     }, 350);
     return () => window.clearTimeout(timeoutId);
   }, [loaded, settings]);
@@ -60,6 +69,7 @@ function OptionsApp() {
     const testRequestId = crypto.randomUUID();
     setTesting(true);
     setMessage(undefined);
+    play("loading");
     try {
       await saveSettings(settings);
     } catch (error) {
@@ -78,6 +88,7 @@ function OptionsApp() {
       port.disconnect();
       setTesting(false);
       setMessage(nextMessage);
+      play(nextMessage.type === "success" ? "success" : "error");
     };
     const listener = (event: TranslationStreamEvent) => {
       if (event.requestId !== testRequestId) return;
@@ -93,6 +104,7 @@ function OptionsApp() {
     const requestId = crypto.randomUUID();
     setLoadingModels(true);
     setMessage(undefined);
+    play("loading");
     try {
       await saveSettings(settings);
     } catch (error) {
@@ -112,6 +124,7 @@ function OptionsApp() {
       setLoadingModels(false);
       if (nextModels) setModels(nextModels);
       setMessage(nextMessage);
+      play(nextMessage.type === "success" ? "success" : "error");
     };
     const listener = (event: TranslationStreamEvent) => {
       if (event.requestId !== requestId) return;

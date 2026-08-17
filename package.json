@@ -12,6 +12,7 @@
     "test:e2e": "node scripts/e2e-smoke.mjs"
   },
   "dependencies": {
+    "cuelume": "^0.2.2",
     "lucide-react": "^0.468.0",
     "openai": "^7.4.0",
     "react": "^19.2.0",

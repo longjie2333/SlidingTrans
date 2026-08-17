@@ -21,6 +21,8 @@ npm run build
 
 首次使用时打开扩展设置，创建或选择翻译服务，填写 OpenAI 兼容接口的 Base URL、协议、模型和 API Key。支持保存多个服务配置并随时切换，支持 Chat Completions 与 Responses 的流式接口。API Key 只保存在浏览器本地扩展存储中，不会同步到云端。
 
+翻译请求开始、完成或失败，以及设置自动保存、连接测试和模型发现，使用 [Cuelume](https://cuelume.dev/docs/) 提供的 `loading`、`success` 和 `error` 音效反馈。浏览器首次访问页面时需要先有一次用户交互，音效才可能播放。
+
 ## 使用
 
 1. 安装或重新加载扩展后，刷新需要划词翻译的网页。

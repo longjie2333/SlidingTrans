@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { Copy, LoaderCircle, LockKeyhole, Menu, Mic, Pin, PinOff, RefreshCw, Volume2, X } from "lucide-react";
+import { play } from "cuelume";
 import { isLikelySameLanguage, SelectionController } from "../src/content/selection";
 import { getModalPlacement, getTriggerPoint } from "../src/content/position";
 import { isHostBlocked, isHostPausedForSession, loadContentSettings, pauseHostForSession, saveContentSettings } from "../src/shared/settings";
@@ -350,12 +351,16 @@ function ContentApp() {
         if (record.selection.id !== event.requestId) return record;
         if (event.type === "partial") return { ...record, partial: event.translation };
         if (event.type === "complete") {
+          play("success");
           if (settingsRef.current?.autoReadWord && event.result.kind === "word" && event.result.phonetic) {
             speak(record.selection.text, event.result.sourceLanguage);
           }
           return { ...record, status: "complete", result: event.result, partial: undefined };
         }
-        if (event.type === "error") return { ...record, status: "error", error: event.message };
+        if (event.type === "error") {
+          play("error");
+          return { ...record, status: "error", error: event.message };
+        }
         return { ...record, status: "aborted" };
       }));
       if (event.type === "complete" || event.type === "error" || event.type === "aborted") requestIds.current.delete(event.requestId);
@@ -395,6 +400,7 @@ function ContentApp() {
       return next;
     });
     setPinned(false);
+    play("loading");
     port.postMessage({ type: "translate", requestId, text: selection.text, contextText: selection.contextText, targetLanguage: currentSettings.targetLanguage });
   };
 
