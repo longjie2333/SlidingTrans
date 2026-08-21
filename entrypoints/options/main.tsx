@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Eye, EyeOff, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { play } from "cuelume";
 import { toast } from "sonner";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
+import { SELECTION_SYSTEM_PROMPT } from "../../src/shared/translation";
 import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
 import { Button } from "../../src/ui/button";
 import { Card } from "../../src/ui/card";
@@ -219,7 +220,14 @@ function OptionsApp() {
         </div>
       </Card>
       <Card className="settings-section system-prompt-section">
-        <h2>系统提示词</h2>
+        <div className="section-header">
+          <h2>系统提示词</h2>
+          <div className="section-toolbar" role="toolbar" aria-label="系统提示词工具栏">
+            <Button variant="ghost" size="sm" type="button" disabled={settings.systemPrompt === SELECTION_SYSTEM_PROMPT} onClick={() => update({ systemPrompt: SELECTION_SYSTEM_PROMPT })}>
+              <RotateCcw size={15} /> 重置
+            </Button>
+          </div>
+        </div>
         <Textarea className="system-prompt-input" value={settings.systemPrompt} rows={10} onChange={(event) => update({ systemPrompt: event.target.value })} aria-label="系统提示词" />
       </Card>
       <Card className="settings-section">

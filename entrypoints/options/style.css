@@ -27,7 +27,7 @@ h2 { margin: 0 0 18px; font-size: 16px; }
 .service-item-actions { display: flex; width: 0; flex: 0 0 auto; align-items: center; overflow: hidden; opacity: 0; transform: translateX(8px); transition: width 220ms ease, opacity 160ms ease, transform 220ms ease; }
 .service-item:hover .service-item-actions, .service-item:focus-within .service-item-actions { width: 36px; opacity: 1; transform: translateX(0); }
 .service-item-action { flex: 0 0 auto; color: #4f5d55; }
-.service-item:hover .service-item-delete, .service-item:focus-within .service-item-delete, .service-item-delete:hover, .service-item-delete:focus-visible { color: #dc2626 !important; background: #fef2f2 !important; }
+.service-item-delete, .service-item:hover .service-item-delete, .service-item:focus-within .service-item-delete, .service-item-delete:hover, .service-item-delete:focus-visible { color: #dc2626 !important; background: transparent !important; }
 .service-new-button { width: 100%; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .translation-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -47,6 +47,9 @@ label { display: grid; gap: 7px; color: #555; font-size: 13px; }
 .api-key-field { min-width: 0; flex: 1; }
 .connection-button { flex: 0 0 auto; }
 .system-prompt-input { width: 100%; min-height: 220px; resize: vertical; }
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.section-header h2 { margin: 0; }
+.section-toolbar { display: flex; min-height: 36px; align-items: center; justify-content: flex-end; gap: 6px; }
 .hint { margin: 12px 0 16px; color: #888; font-size: 12px; line-height: 1.6; }
 .check-list { display: grid; gap: 12px; margin-top: 20px; }
 .check-list label { display: flex; align-items: center; gap: 8px; color: #444; }
@@ -67,5 +70,5 @@ label { display: grid; gap: 7px; color: #555; font-size: 13px; }
   .service-item { background: #2b2c2d; }
   .service-item:hover, .service-item:focus-within { background: #333a36; }
   .service-item.active { background: #193523; }
-  .service-item:hover .service-item-delete, .service-item:focus-within .service-item-delete, .service-item-delete:hover, .service-item-delete:focus-visible { color: #ffb4bd !important; background: #42252a !important; }
+  .service-item-delete, .service-item:hover .service-item-delete, .service-item:focus-within .service-item-delete, .service-item-delete:hover, .service-item-delete:focus-visible { color: #ffb4bd !important; background: transparent !important; }
 }
