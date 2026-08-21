@@ -44,7 +44,11 @@ let observedSystemPrompt = "";
 const server = http.createServer((request, response) => {
   if (request.url === "/page") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end('<p id="selected" style="margin:80px;font-size:24px">Hello world from SlidingTrans.</p>');
+    response.end(`<!doctype html><html><body style="margin:0;min-height:2600px">
+      <p id="selected" style="margin:80px;font-size:24px">Hello world from SlidingTrans.</p>
+      <input id="editor-input" value="editable input text" style="margin:20px 80px;width:260px" />
+      <div id="editor-rich" contenteditable="true" style="margin:20px 80px">editable rich text</div>
+    </body></html>`);
     return;
   }
   if (request.url?.endsWith("/models")) {
@@ -119,6 +123,7 @@ try {
         triggerActivation: "click",
         autoReadWord: false,
         enableWhenSameLanguage: true,
+        ignoreInputSelections: true,
         blockedHosts: [],
       },
       slidingTransServiceKeys: { mock: "e2e-key" },
@@ -212,9 +217,37 @@ try {
   const trigger = page.locator("sliding-trans").first();
   assert.equal(await trigger.count(), 1);
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger")).backgroundColor), "rgb(48, 164, 108)");
+  const triggerPosition = await page.evaluate(() => {
+    const button = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger");
+    return { left: Number.parseFloat(button.style.left), top: Number.parseFloat(button.style.top) };
+  });
+  await page.evaluate(() => { document.querySelector("#selected").style.transform = "translateY(90px)"; });
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate((position) => {
+    const button = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger");
+    return Number.parseFloat(button.style.top) >= position.top + 80;
+  }, triggerPosition), true);
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger") === null), true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger"))), true);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
-  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, button: 0 })));
+  assert.equal(await page.evaluate(() => {
+    const shadow = document.querySelector("sliding-trans").shadowRoot;
+    const loader = shadow.querySelector('[role="status"]');
+    return Boolean(loader && loader.querySelectorAll("span > span").length >= 3 && loader.textContent.includes("正在翻译"));
+  }), true);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="更多设置"]').click());
+  assert.equal(await page.evaluate(() => {
+    const menu = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-menu");
+    const button = menu.querySelector("button");
+    return getComputedStyle(button).justifyContent === "flex-start" && getComputedStyle(button).textAlign === "left";
+  }), true);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="更多设置"]').click());
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
   await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"), undefined, { timeout: 1000 });
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal(slowRequestAborted, true);
@@ -226,8 +259,76 @@ try {
   await page.waitForTimeout(500);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-sentence-translation")?.textContent === "冒烟测试成功", undefined, { timeout: 5000 });
-  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo").naturalWidth), 512);
-  assert.equal(calls, 2);
+  assert.equal(await page.evaluate(() => {
+    const modal = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-modal").getBoundingClientRect();
+    return modal.left >= 0 && modal.top >= 0 && modal.right <= innerWidth && modal.bottom <= innerHeight;
+  }), true);
+  await page.evaluate(() => {
+    const header = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-modal-header");
+    header.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, button: 0, pointerId: 1, clientX: 100, clientY: 100 }));
+    header.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, composed: true, button: 0, pointerId: 1, clientX: 5000, clientY: 5000 }));
+    header.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, composed: true, button: 0, pointerId: 1, clientX: 5000, clientY: 5000 }));
+  });
+  assert.equal(await page.evaluate(() => {
+    const modal = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-modal").getBoundingClientRect();
+    return modal.left >= 0 && modal.top >= 0 && modal.right <= innerWidth && modal.bottom <= innerHeight;
+  }), true);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+
+  await page.evaluate(() => {
+    const input = document.querySelector("#editor-input");
+    input.focus();
+    input.setSelectionRange(0, 8);
+    input.dispatchEvent(new Event("select", { bubbles: true }));
+  });
+  await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger") === null), true);
+  await options.bringToFront();
+  await options.getByText("输入框、文本框和编辑状态中不显示划词翻译", { exact: false }).locator('[data-slot="checkbox"]').click();
+  await options.waitForTimeout(500);
+  await page.bringToFront();
+  await page.evaluate(() => {
+    const input = document.querySelector("#editor-input");
+    input.focus();
+    input.setSelectionRange(0, 8);
+    input.dispatchEvent(new Event("select", { bubbles: true }));
+  });
+  await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger"))), true);
+
+  await page.evaluate(() => {
+    document.activeElement?.blur();
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    const textNode = document.querySelector("#selected").firstChild;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 5);
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal")));
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="更多设置"]').click());
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-menu")));
+  await page.evaluate(() => [...document.querySelector("sliding-trans").shadowRoot.querySelectorAll(".st-menu button")].find((button) => button.textContent.includes("永久关闭")).click());
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await options.bringToFront();
+  await options.reload();
+  await options.waitForSelector("text=划词翻译");
+  const enabledCheckbox = options.getByText("全局启用划词翻译", { exact: false }).locator('[data-slot="checkbox"]');
+  assert.equal(await enabledCheckbox.getAttribute("data-state"), "unchecked");
+  await enabledCheckbox.click();
+  await options.waitForTimeout(500);
+  assert.equal(await enabledCheckbox.getAttribute("data-state"), "checked");
+  assert.equal(await page.evaluate(() => {
+    const logo = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo");
+    return logo ? logo.naturalWidth : 512;
+  }), 512);
+  assert.equal(calls, 3);
   assert.equal(observedSystemPrompt, "自定义提示词 zh-CN");
   console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
 } finally {

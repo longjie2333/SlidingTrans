@@ -12,6 +12,26 @@ export interface ModalPlacement {
   width: number;
 }
 
+export function isRectVisible(rect: ViewportRect, margin = 0): boolean {
+  return rect.right > margin
+    && rect.bottom > margin
+    && rect.left < window.innerWidth - margin
+    && rect.top < window.innerHeight - margin;
+}
+
+export function clampModalPosition(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  margin = 12,
+): TriggerPoint {
+  return {
+    left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
+    top: Math.max(margin, Math.min(window.innerHeight - height - margin, top)),
+  };
+}
+
 export function getTriggerPoint(selection: SelectionSnapshot, mode: TriggerMode): TriggerPoint {
   const offset = mode === "icon" ? 20 : 10;
   const rect = selection.rect;

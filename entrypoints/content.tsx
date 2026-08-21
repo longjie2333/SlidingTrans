@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import { defineContentScript } from "wxt/utils/define-content-script";
-import { Copy, LoaderCircle, LockKeyhole, Menu, Mic, Pin, PinOff, RefreshCw, Volume2, X } from "lucide-react";
+import { Copy, LockKeyhole, Menu, Pin, PinOff, RefreshCw, Volume2, X } from "lucide-react";
 import { play } from "cuelume";
 import { Button } from "../src/ui/button";
-import { isLikelySameLanguage, SelectionController } from "../src/content/selection";
-import { getModalPlacement, getTriggerPoint } from "../src/content/position";
+import AILoader from "../src/components/smoothui/ai-loader";
+import { isLikelySameLanguage, refreshSelectionSnapshot, SelectionController } from "../src/content/selection";
+import { clampModalPosition, getModalPlacement, getTriggerPoint, isRectVisible } from "../src/content/position";
 import { isHostBlocked, isHostPausedForSession, loadContentSettings, pauseHostForSession, saveContentSettings } from "../src/shared/settings";
 import type { ContentSettings, SelectionSnapshot, TranslationResult, TranslationStreamEvent } from "../src/shared/types";
 
@@ -18,6 +19,15 @@ interface TranslationRecord {
   partial?: string;
   result?: TranslationResult;
   error?: string;
+}
+
+function sameSelectionRect(left: SelectionSnapshot["rect"], right: SelectionSnapshot["rect"]): boolean {
+  return left.top === right.top
+    && left.right === right.right
+    && left.bottom === right.bottom
+    && left.left === right.left
+    && left.width === right.width
+    && left.height === right.height;
 }
 
 const logoUrl = `${browser.runtime.getURL("/")}logo-round.png`;
@@ -80,8 +90,7 @@ function Trigger({
 function LoadingBody({ partial }: { partial?: string }) {
   return (
     <div className="st-loading-body">
-      <LoaderCircle className="st-spin" size={18} />
-      <span>{partial || "正在翻译…"}</span>
+      <AILoader className="st-ai-loader" label={partial || "正在翻译"} variant="dots" />
     </div>
   );
 }
@@ -195,7 +204,7 @@ function MoreMenu({
           </Button>
           <Button variant="ghost" size="sm" type="button" onClick={onPauseOnce}><LockKeyhole size={14} /> 本次关闭</Button>
           <Button variant="ghost" size="sm" type="button" onClick={onBlockSite}><LockKeyhole size={14} /> 当前网站禁用</Button>
-          <Button variant="ghost" size="sm" type="button" onClick={onDisable}><X size={14} /> 永久关闭</Button>
+          <Button variant="ghost" size="sm" type="button" onClick={onDisable}><X size={14} /> 永久关闭（设置中恢复）</Button>
         </div>
       ) : null}
     </div>
@@ -264,11 +273,18 @@ function Modal({
     });
   };
   const onHeaderPointerUp = () => { dragRef.current = undefined; };
+  const modalRect = modalRef.current?.getBoundingClientRect();
+  const clampedPosition = clampModalPosition(
+    placement.left + dragOffset.x,
+    placement.top + dragOffset.y,
+    placement.width,
+    modalRect?.height ?? 260,
+  );
   return (
     <div
       ref={modalRef}
       className={`st-modal ${pinned ? "st-modal-pinned" : ""}`}
-      style={{ left: placement.left + dragOffset.x, top: placement.top + dragOffset.y, width: placement.width }}
+      style={{ left: clampedPosition.left, top: clampedPosition.top, width: placement.width }}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div className="st-modal-header" onPointerDown={onHeaderPointerDown} onPointerMove={onHeaderPointerMove} onPointerUp={onHeaderPointerUp}>
@@ -286,7 +302,7 @@ function Modal({
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </Button>
           <MoreMenu settings={settings} onAutoRead={onAutoRead} onPauseOnce={onPauseOnce} onBlockSite={onBlockSite} onDisable={onDisable} />
-          <Button variant="ghost" size="icon" type="button" aria-label="关闭" title="关闭" onPointerDown={(event) => { event.stopPropagation(); onClose(); }}><X size={16} /></Button>
+          <Button variant="ghost" size="icon" type="button" aria-label="关闭" title="关闭" onPointerDown={(event) => event.stopPropagation()} onClick={onClose}><X size={16} /></Button>
         </div>
       </div>
       <div className="st-modal-body">
@@ -303,9 +319,107 @@ function ContentApp() {
   const [records, setRecords] = useState<TranslationRecord[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pinned, setPinned] = useState(false);
-  const port = useMemo(() => browser.runtime.connect({ name: "sliding-trans" }), []);
   const controllerRef = useRef<SelectionController | undefined>(undefined);
-  const requestIds = useRef(new Set<string>());
+  const requestPortRef = useRef<chrome.runtime.Port | undefined>(undefined);
+  const activeRequestIdRef = useRef<string | undefined>(undefined);
+  const triggerSelectionRef = useRef<SelectionSnapshot | null>(null);
+  const recordsRef = useRef<TranslationRecord[]>([]);
+  const activeIndexRef = useRef(0);
+  const pinnedRef = useRef(false);
+
+  triggerSelectionRef.current = triggerSelection;
+  recordsRef.current = records;
+  activeIndexRef.current = activeIndex;
+  pinnedRef.current = pinned;
+
+  const failRequest = (requestId: string, message: string) => {
+    if (activeRequestIdRef.current !== requestId) return;
+    activeRequestIdRef.current = undefined;
+    requestPortRef.current = undefined;
+    play("error");
+    setRecords((current) => current.map((record) => record.selection.id === requestId
+      ? { ...record, status: "error", error: message }
+      : record));
+  };
+
+  const disconnectRequest = (abort: boolean) => {
+    const port = requestPortRef.current;
+    const requestId = activeRequestIdRef.current;
+    requestPortRef.current = undefined;
+    activeRequestIdRef.current = undefined;
+    if (!port) return;
+    if (abort && requestId) {
+      try { port.postMessage({ type: "abort", requestId }); } catch { /* Disconnect below still aborts in the worker. */ }
+    }
+    try { port.disconnect(); } catch { /* The worker may already be gone. */ }
+  };
+
+  const connectTranslation = (selection: SelectionSnapshot, currentSettings: ContentSettings, attempt = 0) => {
+    if (activeRequestIdRef.current !== selection.id) return;
+    const requestPort = browser.runtime.connect({ name: "sliding-trans" });
+    requestPortRef.current = requestPort;
+    let receivedEvent = false;
+
+    const cleanup = () => {
+      requestPort.onMessage.removeListener(onMessage);
+      requestPort.onDisconnect.removeListener(onDisconnect);
+    };
+    const finish = () => {
+      cleanup();
+      if (requestPortRef.current === requestPort) requestPortRef.current = undefined;
+      if (activeRequestIdRef.current === selection.id) activeRequestIdRef.current = undefined;
+      try { requestPort.disconnect(); } catch { /* Already disconnected. */ }
+    };
+    const onMessage = (event: TranslationStreamEvent) => {
+      if (event.type === "connection-ok" || event.type === "models" || event.requestId !== selection.id) return;
+      if (activeRequestIdRef.current !== selection.id) return;
+      receivedEvent = true;
+      setRecords((current) => current.map((record) => {
+        if (record.selection.id !== event.requestId) return record;
+        if (event.type === "partial") return { ...record, partial: event.translation };
+        if (event.type === "complete") {
+          play("success");
+          if (settingsRef.current?.autoReadWord && event.result.kind === "word" && event.result.phonetic) {
+            speak(record.selection.text, event.result.sourceLanguage);
+          }
+          return { ...record, status: "complete", result: event.result, partial: undefined };
+        }
+        if (event.type === "error") {
+          play("error");
+          return { ...record, status: "error", error: event.message };
+        }
+        return { ...record, status: "aborted" };
+      }));
+      if (event.type === "complete" || event.type === "error" || event.type === "aborted") finish();
+    };
+    const onDisconnect = () => {
+      cleanup();
+      if (requestPortRef.current === requestPort) requestPortRef.current = undefined;
+      if (activeRequestIdRef.current !== selection.id) return;
+      if (!receivedEvent && attempt === 0) {
+        window.setTimeout(() => connectTranslation(selection, currentSettings, 1), 0);
+        return;
+      }
+      failRequest(selection.id, "翻译连接已断开，请重试");
+    };
+    requestPort.onMessage.addListener(onMessage);
+    requestPort.onDisconnect.addListener(onDisconnect);
+    try {
+      requestPort.postMessage({
+        type: "translate",
+        requestId: selection.id,
+        text: selection.text,
+        contextText: selection.contextText,
+        targetLanguage: currentSettings.targetLanguage,
+      });
+    } catch {
+      cleanup();
+      if (requestPortRef.current === requestPort) requestPortRef.current = undefined;
+      try { requestPort.disconnect(); } catch { /* Already disconnected. */ }
+      if (attempt === 0) window.setTimeout(() => connectTranslation(selection, currentSettings, 1), 0);
+      else failRequest(selection.id, "无法连接翻译服务，请重试");
+    }
+  };
 
   useEffect(() => {
     void loadContentSettings().then((value) => {
@@ -327,7 +441,11 @@ function ContentApp() {
     if (!settings) return;
     controllerRef.current = new SelectionController((selection) => {
       const currentSettings = settingsRef.current;
-      if (!selection || !currentSettings || isHostBlocked(location.hostname, currentSettings.blockedHosts)) {
+      if (!selection || !currentSettings?.enabled || isHostBlocked(location.hostname, currentSettings.blockedHosts)) {
+        setTriggerSelection(null);
+        return;
+      }
+      if (currentSettings.ignoreInputSelections && selection.source !== "document") {
         setTriggerSelection(null);
         return;
       }
@@ -342,35 +460,40 @@ function ContentApp() {
       }
     });
     return () => controllerRef.current?.dispose();
-  }, [settings?.enabled, settings?.triggerMode]);
+  }, [Boolean(settings)]);
 
   useEffect(() => {
-    const onMessage = (event: TranslationStreamEvent) => {
-      if (event.type === "connection-ok" || event.type === "models") return;
-      if (!requestIds.current.has(event.requestId)) return;
-      setRecords((current) => current.map((record) => {
-        if (record.selection.id !== event.requestId) return record;
-        if (event.type === "partial") return { ...record, partial: event.translation };
-        if (event.type === "complete") {
-          play("success");
-          if (settingsRef.current?.autoReadWord && event.result.kind === "word" && event.result.phonetic) {
-            speak(record.selection.text, event.result.sourceLanguage);
-          }
-          return { ...record, status: "complete", result: event.result, partial: undefined };
+    const shouldTrack = Boolean(triggerSelection) || records.length > 0;
+    if (!shouldTrack) return;
+    let frameId = 0;
+    const track = () => {
+      const trigger = triggerSelectionRef.current;
+      const activeRecord = recordsRef.current[activeIndexRef.current];
+      const reference = trigger ?? activeRecord?.selection;
+      const currentSelection = reference ? refreshSelectionSnapshot(reference) : null;
+      const currentSettings = settingsRef.current;
+      if (currentSelection && reference && currentSelection.text === reference.text) {
+        const nextSelection = { ...currentSelection, id: reference.id };
+        if (trigger) {
+          const ignored = currentSettings?.ignoreInputSelections && nextSelection.source !== "document";
+          if (ignored) setTriggerSelection(null);
+          else if (!sameSelectionRect(trigger.rect, nextSelection.rect)) setTriggerSelection(nextSelection);
+        } else if (!pinnedRef.current && activeRecord) {
+          setRecords((current) => current.map((record, index) => index === activeIndexRef.current
+            && !sameSelectionRect(record.selection.rect, nextSelection.rect)
+            ? { ...record, selection: nextSelection }
+            : record));
         }
-        if (event.type === "error") {
-          play("error");
-          return { ...record, status: "error", error: event.message };
-        }
-        return { ...record, status: "aborted" };
-      }));
-      if (event.type === "complete" || event.type === "error" || event.type === "aborted") requestIds.current.delete(event.requestId);
+      } else if (trigger) {
+        setTriggerSelection(null);
+      }
+      frameId = window.requestAnimationFrame(track);
     };
-    port.onMessage.addListener(onMessage);
-    return () => port.onMessage.removeListener(onMessage);
-  }, [port]);
+    frameId = window.requestAnimationFrame(track);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [Boolean(triggerSelection) || records.length > 0]);
 
-  useEffect(() => () => port.disconnect(), [port]);
+  useEffect(() => () => disconnectRequest(true), []);
 
   useEffect(() => {
     if (!records.length) return;
@@ -391,9 +514,8 @@ function ContentApp() {
   const startTranslation = async (selection: SelectionSnapshot) => {
     const currentSettings = settingsRef.current;
     if (!currentSettings?.enabled || isHostBlocked(location.hostname, currentSettings.blockedHosts) || await isHostPausedForSession(location.hostname)) return;
-    const requestId = selection.id;
-    requestIds.current.forEach((id) => port.postMessage({ type: "abort", requestId: id }));
-    requestIds.current = new Set([requestId]);
+    disconnectRequest(true);
+    activeRequestIdRef.current = selection.id;
     setTriggerSelection(null);
     setRecords((current) => {
       const next = [...current, { selection, status: "loading" as const }].slice(-20);
@@ -402,12 +524,11 @@ function ContentApp() {
     });
     setPinned(false);
     play("loading");
-    port.postMessage({ type: "translate", requestId, text: selection.text, contextText: selection.contextText, targetLanguage: currentSettings.targetLanguage });
+    connectTranslation(selection, currentSettings);
   };
 
   const close = () => {
-    requestIds.current.forEach((id) => port.postMessage({ type: "abort", requestId: id }));
-    requestIds.current.clear();
+    disconnectRequest(true);
     setTriggerSelection(null);
     setRecords([]);
     setPinned(false);
@@ -426,7 +547,7 @@ function ContentApp() {
   const active = records[activeIndex];
   return (
     <>
-      {triggerSelection ? <Trigger selection={triggerSelection} mode={settings.triggerMode} activation={settings.triggerActivation} onTrigger={() => void startTranslation(triggerSelection)} /> : null}
+      {triggerSelection && isRectVisible(triggerSelection.rect) ? <Trigger selection={triggerSelection} mode={settings.triggerMode} activation={settings.triggerActivation} onTrigger={() => void startTranslation(triggerSelection)} /> : null}
       {active ? (
         <Modal
           record={active}

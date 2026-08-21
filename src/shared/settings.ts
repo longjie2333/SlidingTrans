@@ -28,6 +28,7 @@ const settingsSchema = z.object({
   triggerActivation: z.enum(["hover", "click"]),
   autoReadWord: z.boolean(),
   enableWhenSameLanguage: z.boolean(),
+  ignoreInputSelections: z.boolean(),
   blockedHosts: z.array(z.string().trim().min(1).max(253)).max(500),
 });
 const contentSettingsSchema = settingsSchema.omit({ services: true, systemPrompt: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
@@ -80,6 +81,7 @@ export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSetting
     triggerActivation: "hover",
     autoReadWord: false,
     enableWhenSameLanguage: true,
+    ignoreInputSelections: true,
     blockedHosts: [],
   };
 }
@@ -135,7 +137,14 @@ export async function saveSettings(settings: SlidingTransSettings): Promise<void
 
 export async function saveContentSettings(settings: ContentSettings): Promise<void> {
   const parsed = contentSettingsSchema.parse(settings);
-  await browser.storage.local.set({ [SETTINGS_KEY]: parsed });
+  const stored = await browser.storage.local.get(SETTINGS_KEY);
+  const current = storedSettingsSchema.safeParse(stored[SETTINGS_KEY]);
+  await browser.storage.local.set({
+    [SETTINGS_KEY]: {
+      ...parsed,
+      systemPrompt: current.success ? current.data.systemPrompt : SELECTION_SYSTEM_PROMPT,
+    },
+  });
 }
 
 export function getActiveService(settings: SlidingTransSettings): TranslationService {

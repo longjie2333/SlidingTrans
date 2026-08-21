@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompts, extractPartialTranslation, parseTranslationResult } from "./translation";
+import { buildPrompts, extractPartialTranslation, normalizePartOfSpeech, parseTranslationResult } from "./translation";
 
 describe("selection translation response", () => {
   it("parses a dictionary result", () => {
@@ -23,5 +23,10 @@ describe("selection translation response", () => {
 
   it("uses a custom system prompt and replaces the target language token", () => {
     expect(buildPrompts("Hello", "", "日语", "自定义 {{targetLanguage}}").system).toBe("自定义 日语");
+  });
+
+  it("normalizes English parts of speech to standard abbreviations", () => {
+    const result = parseTranslationResult('{"kind":"word","sourceLanguage":"zh","translation":"quickly","definitions":[{"partOfSpeech":"adverb","meaning":"at speed"}]}');
+    expect(normalizePartOfSpeech(result, "en").definitions?.[0]?.partOfSpeech).toBe("adv.");
   });
 });

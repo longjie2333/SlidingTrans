@@ -212,9 +212,10 @@ function OptionsApp() {
           {settings.triggerMode !== "direct" ? <label>图标触发<Select value={settings.triggerActivation} onValueChange={(value) => update({ triggerActivation: value as SlidingTransSettings["triggerActivation"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRIGGER_ACTIVATIONS.map((activation) => <SelectItem key={activation} value={activation}>{activation === "hover" ? "悬浮 200ms" : "点击"}</SelectItem>)}</SelectContent></Select></label> : null}
         </div>
         <div className="check-list">
-          <label><Checkbox checked={settings.enabled} onCheckedChange={(checked) => update({ enabled: checked === true })} /> 启用划词翻译</label>
+          <label><Checkbox checked={settings.enabled} onCheckedChange={(checked) => update({ enabled: checked === true })} /> 全局启用划词翻译（可恢复悬浮窗中的永久关闭）</label>
           <label><Checkbox checked={settings.autoReadWord} onCheckedChange={(checked) => update({ autoReadWord: checked === true })} /> 单词结果自动朗读</label>
           <label><Checkbox checked={settings.enableWhenSameLanguage} onCheckedChange={(checked) => update({ enableWhenSameLanguage: checked === true })} /> 原文与目标语言相同时仍允许查询</label>
+          <label><Checkbox checked={settings.ignoreInputSelections} onCheckedChange={(checked) => update({ ignoreInputSelections: checked === true })} /> 输入框、文本框和编辑状态中不显示划词翻译</label>
         </div>
       </Card>
       <Card className="settings-section system-prompt-section">

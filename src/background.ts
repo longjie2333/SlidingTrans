@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { defineBackground } from "wxt/utils/define-background";
 import { getActiveService, loadSettings } from "./shared/settings";
 import { parseModelIds } from "./shared/models";
-import { buildPrompts, extractPartialTranslation, parseTranslationResult } from "./shared/translation";
+import { buildPrompts, extractPartialTranslation, normalizePartOfSpeech, parseTranslationResult } from "./shared/translation";
 import type {
   BackgroundRequest,
   TranslationRequest,
@@ -146,7 +146,7 @@ async function runTranslation(
     const raw = service.protocol === "responses"
       ? await streamResponse(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText)
       : await streamChatCompletion(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText);
-    const result = parseTranslationResult(raw);
+    const result = normalizePartOfSpeech(parseTranslationResult(raw), request.targetLanguage);
     post(port, { type: "complete", requestId: request.requestId, result });
   } catch (error) {
     if (isAbortError(error)) {

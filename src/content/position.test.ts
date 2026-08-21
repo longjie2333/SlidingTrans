@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getModalPlacement, getTriggerPoint } from "./position";
+import { clampModalPosition, getModalPlacement, getTriggerPoint, isRectVisible } from "./position";
 import { isLikelySameLanguage } from "./selection";
 import type { SelectionSnapshot } from "../shared/types";
 
@@ -28,6 +28,14 @@ describe("selection positioning", () => {
     const placement = getModalPlacement({ ...selection.rect, top: 560, bottom: 580 }, 450, 180);
     expect(placement.placement).toBe("top");
     expect(placement.top).toBeLessThan(560);
+  });
+
+  it("tracks viewport visibility and clamps a dragged modal", () => {
+    vi.stubGlobal("innerWidth", 800);
+    vi.stubGlobal("innerHeight", 600);
+    expect(isRectVisible(selection.rect)).toBe(true);
+    expect(isRectVisible({ ...selection.rect, top: 700, bottom: 720 })).toBe(false);
+    expect(clampModalPosition(760, 580, 300, 200)).toEqual({ left: 488, top: 388 });
   });
 });
 

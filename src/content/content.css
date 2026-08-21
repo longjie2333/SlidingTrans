@@ -31,7 +31,8 @@ button { font: inherit; }
 .st-modal {
   position: fixed;
   z-index: 2147483647;
-  max-height: min(72vh, 580px);
+  max-width: calc(100vw - 24px);
+  max-height: min(72vh, 580px, calc(100vh - 24px));
   overflow: visible;
   border: 1px solid rgba(0,0,0,.06);
   border-radius: 10px;
@@ -50,13 +51,12 @@ button { font: inherit; }
 .st-history { gap: 2px; color: #888; font-size: 11px; }
 .st-history button { width: 20px; min-height: 20px; }
 .st-menu-wrap { position: relative; }
-.st-menu { position: absolute; top: 30px; right: 0; z-index: 2; width: 164px; padding: 6px; border: 1px solid #eee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
-.st-menu button { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 0; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #444; text-align: left; font-size: 12px; cursor: pointer; }
+.st-menu { position: absolute; top: 30px; right: 0; z-index: 2; width: 210px; padding: 6px; border: 1px solid #eee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
+.st-menu button { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-height: 0; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #444; text-align: left; font-size: 12px; cursor: pointer; }
 .st-menu button:hover { background: #f6f7f8; color: #30A46C; }
-.st-modal-body { max-height: min(64vh, 520px); overflow: auto; padding: 14px 16px 16px; }
+.st-modal-body { max-height: min(64vh, 520px, calc(100vh - 66px)); overflow: auto; padding: 14px 16px 16px; }
 .st-loading-body { display: flex; align-items: center; gap: 10px; min-height: 82px; color: #777; font-size: 13px; white-space: pre-wrap; }
-.st-spin { color: #30A46C; animation: st-spin 1s linear infinite; flex: 0 0 auto; }
-@keyframes st-spin { to { transform: rotate(360deg); } }
+.st-ai-loader { color: #30A46C; }
 .st-result-body { min-width: 0; font-size: 14px; line-height: 1.55; }
 .st-word-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .st-word-heading strong { font-size: 18px; color: #222; }

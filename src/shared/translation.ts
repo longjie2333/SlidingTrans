@@ -29,6 +29,7 @@ export const SELECTION_SYSTEM_PROMPT = `You are a professional multilingual tran
 Translate selected text from its detected source language into {{targetLanguage}}.
 Return only valid JSON, never Markdown or commentary.
 For a single word, return kind "word", a sourceLanguage, phonetic notation in the source language, a concise translation, definitions grouped by part of speech, natural example sentences, and contextualAnalysis.
+For a single word, partOfSpeech must use the standard abbreviation of {{targetLanguage}}. For English use forms such as n., v., adj., adv., prep., pron., conj., and interj.; never spell out the English part of speech.
 For a phrase or sentence, return kind "text", sourceLanguage, and translation only.
 All explanations, definitions, examples, contextualAnalysis, and translation must be in {{targetLanguage}}.
 Use this exact shape:
@@ -87,5 +88,41 @@ export function parseTranslationResult(value: string): TranslationResult {
     ...(parsed.contextualAnalysis || parsed.contextual_analysis
       ? { contextualAnalysis: parsed.contextualAnalysis ?? parsed.contextual_analysis }
       : {}),
+  };
+}
+
+const ENGLISH_PART_OF_SPEECH = new Map([
+  ["noun", "n."],
+  ["n", "n."],
+  ["verb", "v."],
+  ["v", "v."],
+  ["adjective", "adj."],
+  ["adj", "adj."],
+  ["adverb", "adv."],
+  ["adv", "adv."],
+  ["preposition", "prep."],
+  ["prep", "prep."],
+  ["pronoun", "pron."],
+  ["pron", "pron."],
+  ["conjunction", "conj."],
+  ["conj", "conj."],
+  ["interjection", "interj."],
+  ["interj", "interj."],
+  ["determiner", "det."],
+  ["det", "det."],
+  ["article", "art."],
+  ["art", "art."],
+  ["numeral", "num."],
+  ["num", "num."],
+]);
+
+export function normalizePartOfSpeech(result: TranslationResult, targetLanguage: string): TranslationResult {
+  if (!targetLanguage.toLowerCase().startsWith("en") || !result.definitions?.length) return result;
+  return {
+    ...result,
+    definitions: result.definitions.map((definition) => {
+      const key = definition.partOfSpeech.trim().toLowerCase().replace(/\.+$/u, "");
+      return { ...definition, partOfSpeech: ENGLISH_PART_OF_SPEECH.get(key) ?? definition.partOfSpeech };
+    }),
   };
 }

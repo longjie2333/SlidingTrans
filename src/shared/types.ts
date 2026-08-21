@@ -27,6 +27,7 @@ export interface SlidingTransSettings {
   triggerActivation: TriggerActivation;
   autoReadWord: boolean;
   enableWhenSameLanguage: boolean;
+  ignoreInputSelections: boolean;
   blockedHosts: string[];
 }
 
@@ -41,7 +42,7 @@ export interface ViewportRect {
   height: number;
 }
 
-export type SelectionSource = "document" | "input";
+export type SelectionSource = "document" | "input" | "editable";
 
 export interface SelectionSnapshot {
   id: string;

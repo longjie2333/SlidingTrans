@@ -8,6 +8,7 @@ describe("settings", () => {
     expect(settings.triggerMode).toBe("mini");
     expect(settings.triggerActivation).toBe("hover");
     expect(settings.systemPrompt).toContain("{{targetLanguage}}");
+    expect(settings.ignoreInputSelections).toBe(true);
   });
 
   it("matches a blocked domain and its subdomains", () => {

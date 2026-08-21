@@ -81,6 +81,13 @@ function inputSnapshot(active: HTMLInputElement | HTMLTextAreaElement): Selectio
   };
 }
 
+function isEditableElement(element: Element): boolean {
+  return element instanceof HTMLElement && (
+    element.isContentEditable
+    || Boolean(element.closest("[contenteditable]:not([contenteditable='false'])"))
+  );
+}
+
 export function readSelection(target: Document = document): SelectionSnapshot | null {
   const active = target.activeElement;
   if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
@@ -103,8 +110,31 @@ export function readSelection(target: Document = document): SelectionSnapshot | 
     text,
     contextText: getNearbyContext(element, text),
     rect,
-    source: "document",
+    source: isEditableElement(element) || target.designMode === "on" ? "editable" : "document",
     frameUrl: location.href,
+  };
+}
+
+export function refreshSelectionSnapshot(snapshot: SelectionSnapshot, target: Document = document): SelectionSnapshot | null {
+  const active = target.activeElement;
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+    const current = inputSnapshot(active);
+    return current?.text === snapshot.text ? { ...snapshot, rect: current.rect, source: current.source } : null;
+  }
+  const selection = getSelectionFromRoot(target);
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed || selection.toString().trim() !== snapshot.text) return null;
+  const range = selection.getRangeAt(0);
+  if (isExtensionUi(range.commonAncestorContainer)) return null;
+  const rect = unionRects(Array.from(range.getClientRects()));
+  if (!rect) return null;
+  const element = range.commonAncestorContainer instanceof Element
+    ? range.commonAncestorContainer
+    : range.commonAncestorContainer.parentElement;
+  if (!element) return null;
+  return {
+    ...snapshot,
+    rect,
+    source: isEditableElement(element) || target.designMode === "on" ? "editable" : "document",
   };
 }
 
