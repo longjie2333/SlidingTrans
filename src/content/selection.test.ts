@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { readSelection, refreshSelectionSnapshot } from "./selection";
+import { getTranslationSegments, normalizeLineBreaks, readSelection, refreshSelectionSnapshot } from "./selection";
+
+function contentText(nodes: NonNullable<ReturnType<typeof readSelection>>["content"]): string {
+  return nodes.map((node) => {
+    if (node.type === "text") return node.text;
+    if (node.tag === "br") return "\n";
+    return contentText(node.children);
+  }).join("");
+}
 
 describe("selection extraction", () => {
   it("reads a bounded selection from a text input", () => {
@@ -77,6 +85,77 @@ describe("selection extraction", () => {
 
     expect(refreshSelectionSnapshot(snapshot)?.id).toBe("stable");
     expect(refreshSelectionSnapshot(snapshot)?.rect.top).toBe(40);
+    selection.removeAllRanges();
+    document.body.innerHTML = "";
+  });
+
+  it("captures list and inline formatting while excluding code from translation segments", () => {
+    document.body.innerHTML = `
+      <ol id="selected-list" start="3">
+        <li>First <strong>bold</strong></li>
+        <li><code>const value = 1</code> and <em>italic</em><ul><li>Nested option</li></ul></li>
+      </ol>`;
+    const list = document.querySelector("#selected-list")!;
+    const range = document.createRange();
+    range.selectNodeContents(list);
+    Object.defineProperty(range, "getClientRects", { value: () => [new DOMRect(10, 10, 180, 60)] });
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const snapshot = readSelection(document)!;
+    expect(snapshot.content[0]).toMatchObject({ type: "element", tag: "ol", start: 3 });
+    expect(JSON.stringify(snapshot.content)).toContain('"tag":"strong"');
+    expect(JSON.stringify(snapshot.content)).toContain('"tag":"em"');
+    expect(JSON.stringify(snapshot.content)).toContain('"tag":"code"');
+    expect(JSON.stringify(snapshot.content)).toContain('"tag":"ul"');
+    expect(getTranslationSegments(snapshot.content).map((segment) => segment.text)).toEqual([
+      "First",
+      "bold",
+      "and",
+      "italic",
+      "Nested option",
+    ]);
+
+    selection.removeAllRanges();
+    document.body.innerHTML = "";
+  });
+
+  it("keeps a code-only selection local and creates no translation segments", () => {
+    document.body.innerHTML = '<pre><code id="source">const answer = 42;</code></pre>';
+    const source = document.querySelector("#source")!;
+    const range = document.createRange();
+    range.selectNodeContents(source);
+    Object.defineProperty(range, "getClientRects", { value: () => [new DOMRect(10, 10, 180, 20)] });
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const snapshot = readSelection(document)!;
+    expect(getTranslationSegments(snapshot.content)).toEqual([]);
+    expect(JSON.stringify(snapshot.content)).toContain('"tag":"code"');
+
+    selection.removeAllRanges();
+    document.body.innerHTML = "";
+  });
+
+  it("preserves line breaks while collapsing multiple blank lines to one", () => {
+    expect(normalizeLineBreaks("First\r\nSecond\n\n\n\nThird")).toBe("First\nSecond\n\nThird");
+    document.body.innerHTML = `<div id="lines">First<br>Second<br>
+      <br>
+      <br><br>Third</div>`;
+    const lines = document.querySelector("#lines")!;
+    const range = document.createRange();
+    range.selectNodeContents(lines);
+    Object.defineProperty(range, "getClientRects", { value: () => [new DOMRect(10, 10, 180, 80)] });
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const snapshot = readSelection(document)!;
+    expect(contentText(snapshot.content)).toBe("First\nSecond\n\nThird");
+    expect(getTranslationSegments(snapshot.content).map((segment) => segment.text)).toEqual(["First", "Second", "Third"]);
+
     selection.removeAllRanges();
     document.body.innerHTML = "";
   });

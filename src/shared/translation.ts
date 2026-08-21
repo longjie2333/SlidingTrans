@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { TranslationDefinition, TranslationResult } from "./types";
+import type { TranslationDefinition, TranslationResult, TranslationSegment } from "./types";
 
 const rawDefinitionSchema = z.object({
   partOfSpeech: z.string().optional(),
@@ -23,6 +23,10 @@ const rawResultSchema = z.object({
   definitions: z.array(rawDefinitionSchema).optional(),
   contextualAnalysis: z.string().optional(),
   contextual_analysis: z.string().optional(),
+  segmentTranslations: z.array(z.object({
+    id: z.string().trim().min(1),
+    translation: z.string().min(1),
+  })).optional(),
 });
 
 export const SELECTION_SYSTEM_PROMPT = `You are a professional multilingual translation engine.
@@ -30,15 +34,24 @@ Translate selected text from its detected source language into {{targetLanguage}
 Return only valid JSON, never Markdown or commentary.
 For a single word, return kind "word", a sourceLanguage, phonetic notation in the source language, a concise translation, definitions grouped by part of speech, natural example sentences, and contextualAnalysis.
 For a single word, partOfSpeech must use the standard abbreviation of {{targetLanguage}}. For English use forms such as n., v., adj., adv., prep., pron., conj., and interj.; never spell out the English part of speech.
-For a phrase or sentence, return kind "text", sourceLanguage, and translation only.
+For a phrase or sentence, return kind "text", sourceLanguage, translation, and segmentTranslations. Translate every supplied segment exactly once, preserve its ID, and never merge or omit segments. Code is excluded from the supplied segments and must not be translated.
 All explanations, definitions, examples, contextualAnalysis, and translation must be in {{targetLanguage}}.
 Use this exact shape:
-{"kind":"word|text","sourceLanguage":"en","translation":"...","phonetic":"...","definitions":[{"partOfSpeech":"noun","meaning":"...","example":{"source":"...","target":"..."}}],"contextualAnalysis":"..."}`;
+{"kind":"word|text","sourceLanguage":"en","translation":"...","phonetic":"...","definitions":[{"partOfSpeech":"noun","meaning":"...","example":{"source":"...","target":"..."}}],"contextualAnalysis":"...","segmentTranslations":[{"id":"s0","translation":"..."}]}`;
 
-export function buildPrompts(text: string, contextText: string, targetLanguage: string, systemPrompt = SELECTION_SYSTEM_PROMPT) {
+export function buildPrompts(
+  text: string,
+  contextText: string,
+  targetLanguage: string,
+  systemPrompt = SELECTION_SYSTEM_PROMPT,
+  segments: TranslationSegment[] = [],
+) {
+  const segmentInstruction = segments.length
+    ? `\n\n[Translatable segments]\n${JSON.stringify(segments)}\nReturn one segmentTranslations item for every supplied ID. Translate only these segments; preserve each ID exactly.`
+    : "";
   return {
     system: systemPrompt.replaceAll("{{targetLanguage}}", targetLanguage),
-    user: `[Selected text]\n${text}\n\n[Nearby context]\n${contextText || "(none)"}`,
+    user: `[Selected translatable text]\n${text}\n\n[Nearby context]\n${contextText || "(none)"}${segmentInstruction}`,
   };
 }
 
@@ -60,7 +73,7 @@ function cleanJsonCandidate(value: string): string {
   return first >= 0 && last > first ? withoutFence.slice(first, last + 1) : withoutFence;
 }
 
-export function parseTranslationResult(value: string): TranslationResult {
+export function parseTranslationResult(value: string, expectedSegments: TranslationSegment[] = []): TranslationResult {
   const parsed = rawResultSchema.parse(JSON.parse(cleanJsonCandidate(value)));
   const definitions: TranslationDefinition[] | undefined = parsed.definitions
     ?.map((definition) => {
@@ -79,6 +92,22 @@ export function parseTranslationResult(value: string): TranslationResult {
   const translation = parsed.translation?.trim() ?? "";
   if (!translation) throw new Error("模型没有返回有效译文");
   const kind = parsed.kind ?? parsed.type ?? (definitions?.length || parsed.phonetic ? "word" : "text");
+  let segmentTranslations: TranslationResult["segmentTranslations"];
+  if (kind === "text" && expectedSegments.length) {
+    const expectedIds = new Set(expectedSegments.map((segment) => segment.id));
+    const supplied = parsed.segmentTranslations ?? [];
+    const suppliedIds = new Set(supplied.map((segment) => segment.id));
+    if (supplied.length !== suppliedIds.size
+      || supplied.length !== expectedIds.size
+      || supplied.some((segment) => !expectedIds.has(segment.id))) {
+      throw new Error("模型没有完整返回结构化译文");
+    }
+    const translationsById = new Map(supplied.map((segment) => [segment.id, segment.translation]));
+    segmentTranslations = expectedSegments.map((segment) => ({
+      id: segment.id,
+      translation: translationsById.get(segment.id)!,
+    }));
+  }
   return {
     kind,
     sourceLanguage: parsed.sourceLanguage ?? parsed.source_language ?? "auto",
@@ -88,6 +117,7 @@ export function parseTranslationResult(value: string): TranslationResult {
     ...(parsed.contextualAnalysis || parsed.contextual_analysis
       ? { contextualAnalysis: parsed.contextualAnalysis ?? parsed.contextual_analysis }
       : {}),
+    ...(segmentTranslations ? { segmentTranslations } : {}),
   };
 }
 

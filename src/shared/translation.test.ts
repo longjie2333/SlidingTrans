@@ -18,7 +18,9 @@ describe("selection translation response", () => {
 
   it("extracts a streaming translation without waiting for the closing JSON", () => {
     expect(extractPartialTranslation('{"kind":"text","translation":"Hello')).toBe("Hello");
-    expect(buildPrompts("Hello", "A nearby sentence", "简体中文").user).toContain("A nearby sentence");
+    const prompt = buildPrompts("Hello", "A nearby sentence", "简体中文", undefined, [{ id: "s0", text: "Hello" }]).user;
+    expect(prompt).toContain("A nearby sentence");
+    expect(prompt).toContain('"id":"s0"');
   });
 
   it("uses a custom system prompt and replaces the target language token", () => {
@@ -28,5 +30,24 @@ describe("selection translation response", () => {
   it("normalizes English parts of speech to standard abbreviations", () => {
     const result = parseTranslationResult('{"kind":"word","sourceLanguage":"zh","translation":"quickly","definitions":[{"partOfSpeech":"adverb","meaning":"at speed"}]}');
     expect(normalizePartOfSpeech(result, "en").definitions?.[0]?.partOfSpeech).toBe("adv.");
+  });
+
+  it("validates and orders every structured translation segment", () => {
+    const segments = [{ id: "s0", text: "First" }, { id: "s1", text: "Second" }];
+    const result = parseTranslationResult(
+      '{"kind":"text","sourceLanguage":"en","translation":"第一 第二","segmentTranslations":[{"id":"s1","translation":"第二"},{"id":"s0","translation":"第一"}]}',
+      segments,
+    );
+    expect(result.segmentTranslations).toEqual([
+      { id: "s0", translation: "第一" },
+      { id: "s1", translation: "第二" },
+    ]);
+  });
+
+  it("rejects incomplete structured translation segments", () => {
+    expect(() => parseTranslationResult(
+      '{"kind":"text","sourceLanguage":"en","translation":"第一","segmentTranslations":[{"id":"s0","translation":"第一"}]}',
+      [{ id: "s0", text: "First" }, { id: "s1", text: "Second" }],
+    )).toThrow("模型没有完整返回结构化译文");
   });
 });

@@ -1,4 +1,10 @@
-import type { SelectionSnapshot, ViewportRect } from "../shared/types";
+import type {
+  SelectionContentNode,
+  SelectionContentTag,
+  SelectionSnapshot,
+  TranslationSegment,
+  ViewportRect,
+} from "../shared/types";
 
 const MAX_TEXT_LENGTH = 5000;
 const CONTEXT_LIMIT = 200;
@@ -56,6 +62,157 @@ function createSelectionId(): string {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
 }
 
+const ELEMENT_TAGS = new Map<string, SelectionContentTag>([
+  ["DIV", "div"],
+  ["P", "p"],
+  ["OL", "ol"],
+  ["UL", "ul"],
+  ["LI", "li"],
+  ["STRONG", "strong"],
+  ["B", "strong"],
+  ["EM", "em"],
+  ["I", "em"],
+  ["CODE", "code"],
+  ["PRE", "pre"],
+  ["BR", "br"],
+  ["BLOCKQUOTE", "blockquote"],
+]);
+
+const WRAPPABLE_ANCESTOR_TAGS = new Set<SelectionContentTag>([
+  "div",
+  "p",
+  "ol",
+  "ul",
+  "li",
+  "strong",
+  "em",
+  "code",
+  "pre",
+  "blockquote",
+]);
+
+function hasTranslatableText(value: string): boolean {
+  return /[\p{L}\p{N}]/u.test(value);
+}
+
+export function normalizeLineBreaks(value: string): string {
+  return value
+    .replace(/\r\n?/gu, "\n")
+    .replace(/\n(?:[\t ]*\n){2,}/gu, "\n\n");
+}
+
+function serializeText(
+  value: string,
+  state: { nextSegment: number },
+  inCode: boolean,
+): SelectionContentNode[] {
+  const text = normalizeLineBreaks(value);
+  if (!text) return [];
+  if (inCode) return [{ type: "text", text }];
+  return text.split(/(\n[\t ]*)/u).filter(Boolean).map((part) => ({
+    type: "text" as const,
+    text: part,
+    ...(hasTranslatableText(part) ? { segmentId: `s${state.nextSegment++}` } : {}),
+  }));
+}
+
+function stripSegmentIds(node: SelectionContentNode): SelectionContentNode {
+  if (node.type === "text") return { type: "text", text: node.text };
+  return { ...node, children: node.children.map(stripSegmentIds) };
+}
+
+function serializeSelectionNode(
+  node: Node,
+  state: { nextSegment: number },
+  inCode = false,
+): SelectionContentNode[] {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return serializeText(node.textContent ?? "", state, inCode);
+  }
+  if (!(node instanceof Element || node instanceof DocumentFragment)) return [];
+  if (node instanceof Element && ["SCRIPT", "STYLE", "NOSCRIPT"].includes(node.tagName)) return [];
+  const tag = node instanceof Element ? ELEMENT_TAGS.get(node.tagName) : undefined;
+  const code = inCode || tag === "code" || tag === "pre";
+  const children = Array.from(node.childNodes).flatMap((child) => serializeSelectionNode(child, state, code));
+  if (!tag) return children;
+  return [{
+    type: "element",
+    tag,
+    children: normalizeBlockChildren(tag, children),
+    ...(tag === "ol" && node instanceof HTMLOListElement && node.start !== 1 ? { start: node.start } : {}),
+  }];
+}
+
+function contentHasOuterTag(content: SelectionContentNode[], tag: SelectionContentTag): boolean {
+  return content.length === 1 && content[0]?.type === "element" && content[0].tag === tag;
+}
+
+const BLOCK_TAGS = new Set<SelectionContentTag>(["div", "p", "ol", "ul", "li", "pre", "blockquote"]);
+
+function isBlockNode(node: SelectionContentNode | undefined): boolean {
+  return node?.type === "element" && BLOCK_TAGS.has(node.tag);
+}
+
+function normalizeBlockChildren(tag: SelectionContentTag | undefined, children: SelectionContentNode[]): SelectionContentNode[] {
+  const withoutSourceIndentation = children.filter((node, index) => {
+    if (node.type !== "text" || node.text.trim() !== "") return true;
+    if (tag === "ol" || tag === "ul") return false;
+    return !node.text.includes("\n") || (!isBlockNode(children[index - 1]) && !isBlockNode(children[index + 1]));
+  });
+  let consecutiveBreaks = 0;
+  return withoutSourceIndentation.flatMap((node): SelectionContentNode[] => {
+    if (node.type === "element" && node.tag === "br") {
+      if (consecutiveBreaks >= 2) return [];
+      consecutiveBreaks += 1;
+      return [node];
+    }
+    if (node.type === "text" && !node.segmentId && /\n/u.test(node.text) && node.text.trim() === "") {
+      const allowed = Math.min(2 - consecutiveBreaks, node.text.match(/\n/gu)?.length ?? 0);
+      if (allowed <= 0) return [];
+      consecutiveBreaks += allowed;
+      return [{ ...node, text: "\n".repeat(allowed) }];
+    }
+    consecutiveBreaks = 0;
+    return [node];
+  });
+}
+
+function selectionContent(range: Range): SelectionContentNode[] {
+  const state = { nextSegment: 0 };
+  let content = serializeSelectionNode(range.cloneContents(), state);
+  let ancestor = range.commonAncestorContainer instanceof Element
+    ? range.commonAncestorContainer
+    : range.commonAncestorContainer.parentElement;
+  while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
+    const tag = ELEMENT_TAGS.get(ancestor.tagName);
+    if (tag && WRAPPABLE_ANCESTOR_TAGS.has(tag) && !contentHasOuterTag(content, tag)) {
+      if (tag === "code" || tag === "pre") content = content.map(stripSegmentIds);
+      content = [{
+        type: "element",
+        tag,
+        children: normalizeBlockChildren(tag, content),
+        ...(tag === "ol" && ancestor instanceof HTMLOListElement && ancestor.start !== 1 ? { start: ancestor.start } : {}),
+      }];
+    }
+    if (tag === "div" || tag === "ol" || tag === "ul" || tag === "p" || tag === "pre" || tag === "blockquote") break;
+    ancestor = ancestor.parentElement;
+  }
+  return normalizeBlockChildren(undefined, content);
+}
+
+export function getTranslationSegments(content: SelectionContentNode[]): TranslationSegment[] {
+  const segments: TranslationSegment[] = [];
+  const visit = (node: SelectionContentNode) => {
+    if (node.type === "text") {
+      if (node.segmentId) segments.push({ id: node.segmentId, text: node.text.trim() });
+      return;
+    }
+    node.children.forEach(visit);
+  };
+  content.forEach(visit);
+  return segments;
+}
+
 function getSelectionFromRoot(root: Document | ShadowRoot): Selection | null {
   if (root instanceof Document) return root.getSelection();
   const shadowSelection = (root as ShadowRoot & { getSelection?: () => Selection | null }).getSelection?.();
@@ -75,6 +232,7 @@ function inputSnapshot(active: HTMLInputElement | HTMLTextAreaElement): Selectio
     id: createSelectionId(),
     text,
     contextText: active.value.slice(valueStart, valueEnd).slice(0, CONTEXT_LIMIT * 3),
+    content: serializeText(text, { nextSegment: 0 }, false),
     rect: rectFromDomRect(active.getBoundingClientRect()),
     source: "input",
     frameUrl: location.href,
@@ -109,6 +267,7 @@ export function readSelection(target: Document = document): SelectionSnapshot | 
     id: createSelectionId(),
     text,
     contextText: getNearbyContext(element, text),
+    content: selectionContent(range),
     rect,
     source: isEditableElement(element) || target.designMode === "on" ? "editable" : "document",
     frameUrl: location.href,

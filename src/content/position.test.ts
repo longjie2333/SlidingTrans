@@ -7,6 +7,7 @@ const selection: SelectionSnapshot = {
   id: "test",
   text: "hello",
   contextText: "",
+  content: [{ type: "text", text: "hello", segmentId: "s0" }],
   source: "document",
   frameUrl: "https://example.com",
   rect: { top: 100, right: 300, bottom: 120, left: 240, width: 60, height: 20 },

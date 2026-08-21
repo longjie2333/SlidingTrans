@@ -44,10 +44,33 @@ export interface ViewportRect {
 
 export type SelectionSource = "document" | "input" | "editable";
 
+export type SelectionContentTag =
+  | "div"
+  | "p"
+  | "ol"
+  | "ul"
+  | "li"
+  | "strong"
+  | "em"
+  | "code"
+  | "pre"
+  | "br"
+  | "blockquote";
+
+export type SelectionContentNode =
+  | { type: "text"; text: string; segmentId?: string }
+  | { type: "element"; tag: SelectionContentTag; children: SelectionContentNode[]; start?: number };
+
+export interface TranslationSegment {
+  id: string;
+  text: string;
+}
+
 export interface SelectionSnapshot {
   id: string;
   text: string;
   contextText: string;
+  content: SelectionContentNode[];
   rect: ViewportRect;
   source: SelectionSource;
   frameUrl: string;
@@ -69,6 +92,10 @@ export interface TranslationResult {
   phonetic?: string;
   definitions?: TranslationDefinition[];
   contextualAnalysis?: string;
+  segmentTranslations?: Array<{
+    id: string;
+    translation: string;
+  }>;
 }
 
 export interface TranslationRequest {
@@ -76,6 +103,7 @@ export interface TranslationRequest {
   requestId: string;
   text: string;
   contextText: string;
+  segments: TranslationSegment[];
   targetLanguage: string;
 }
 

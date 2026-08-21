@@ -6,17 +6,16 @@ import { Copy, LockKeyhole, Menu, Pin, PinOff, RefreshCw, Volume2, X } from "luc
 import { play } from "cuelume";
 import { Button } from "../src/ui/button";
 import AILoader from "../src/components/smoothui/ai-loader";
-import { isLikelySameLanguage, refreshSelectionSnapshot, SelectionController } from "../src/content/selection";
+import { getTranslationSegments, isLikelySameLanguage, refreshSelectionSnapshot, SelectionController } from "../src/content/selection";
 import { clampModalPosition, getModalPlacement, getTriggerPoint, isRectVisible } from "../src/content/position";
 import { isHostBlocked, isHostPausedForSession, loadContentSettings, pauseHostForSession, saveContentSettings } from "../src/shared/settings";
-import type { ContentSettings, SelectionSnapshot, TranslationResult, TranslationStreamEvent } from "../src/shared/types";
+import type { ContentSettings, SelectionContentNode, SelectionSnapshot, TranslationResult, TranslationStreamEvent } from "../src/shared/types";
 
 import "../src/content/content.css";
 
 interface TranslationRecord {
   selection: SelectionSnapshot;
   status: "loading" | "complete" | "error" | "aborted";
-  partial?: string;
   result?: TranslationResult;
   error?: string;
 }
@@ -33,8 +32,7 @@ function sameSelectionRect(left: SelectionSnapshot["rect"], right: SelectionSnap
 const logoUrl = `${browser.runtime.getURL("/")}logo-round.png`;
 
 function readResultText(record: TranslationRecord): string {
-  if (record.result?.translation) return record.result.translation;
-  return record.partial ?? "";
+  return record.result?.translation ?? "";
 }
 
 function speak(text: string, language: string): void {
@@ -47,6 +45,35 @@ function speak(text: string, language: string): void {
 
 function copyText(text: string): void {
   void navigator.clipboard?.writeText(text);
+}
+
+function preserveBoundaryWhitespace(source: string, translation: string): string {
+  const leading = source.match(/^\s*/u)?.[0] ?? "";
+  const trailing = source.match(/\s*$/u)?.[0] ?? "";
+  return `${leading}${translation.trim()}${trailing}`;
+}
+
+function StructuredTranslation({
+  content,
+  result,
+}: {
+  content: SelectionContentNode[];
+  result: TranslationResult;
+}) {
+  const translations = new Map(result.segmentTranslations?.map((segment) => [segment.id, segment.translation]));
+  const renderNode = (node: SelectionContentNode, key: string): React.ReactNode => {
+    if (node.type === "text") {
+      const translation = node.segmentId ? translations.get(node.segmentId) : undefined;
+      return <React.Fragment key={key}>{translation === undefined ? node.text : preserveBoundaryWhitespace(node.text, translation)}</React.Fragment>;
+    }
+    if (node.tag === "br") return <br key={key} />;
+    return React.createElement(
+      node.tag,
+      { key, ...(node.tag === "ol" && node.start !== undefined ? { start: node.start } : {}) },
+      node.children.map((child, index) => renderNode(child, `${key}-${index}`)),
+    );
+  };
+  return <div className="st-structured-translation">{content.map((node, index) => renderNode(node, String(index)))}</div>;
 }
 
 function Trigger({
@@ -87,10 +114,10 @@ function Trigger({
   );
 }
 
-function LoadingBody({ partial }: { partial?: string }) {
+function LoadingBody() {
   return (
     <div className="st-loading-body">
-      <AILoader className="st-ai-loader" label={partial || "正在翻译"} variant="dots" />
+      <AILoader className="st-ai-loader" label="正在翻译" variant="grid" />
     </div>
   );
 }
@@ -115,8 +142,8 @@ function ResultBody({
       </div>
     );
   }
-  if (record.status === "loading" && !result) return <LoadingBody partial={record.partial} />;
-  if (!result) return <LoadingBody partial={record.partial} />;
+  if (record.status === "loading" && !result) return <LoadingBody />;
+  if (!result) return <LoadingBody />;
   const source = record.selection.text;
   const translation = readResultText(record);
   const isWord = result.kind === "word";
@@ -155,12 +182,13 @@ function ResultBody({
         </>
       ) : (
         <>
-          <div className="st-sentence-translation">{translation}</div>
+          <div className="st-sentence-translation">
+            <StructuredTranslation content={record.selection.content} result={result} />
+          </div>
           <ResultActions text={translation} language={settings.targetLanguage} />
           {result.contextualAnalysis ? <p className="st-context">{result.contextualAnalysis}</p> : null}
         </>
       )}
-      {record.status === "loading" ? <span className="st-streaming">正在生成…</span> : null}
     </div>
   );
 }
@@ -204,7 +232,7 @@ function MoreMenu({
           </Button>
           <Button variant="ghost" size="sm" type="button" onClick={onPauseOnce}><LockKeyhole size={14} /> 本次关闭</Button>
           <Button variant="ghost" size="sm" type="button" onClick={onBlockSite}><LockKeyhole size={14} /> 当前网站禁用</Button>
-          <Button variant="ghost" size="sm" type="button" onClick={onDisable}><X size={14} /> 永久关闭（设置中恢复）</Button>
+          <Button variant="ghost" size="sm" type="button" onClick={onDisable}><X size={14} /> 永久关闭</Button>
         </div>
       ) : null}
     </div>
@@ -376,13 +404,13 @@ function ContentApp() {
       receivedEvent = true;
       setRecords((current) => current.map((record) => {
         if (record.selection.id !== event.requestId) return record;
-        if (event.type === "partial") return { ...record, partial: event.translation };
+        if (event.type === "partial") return record;
         if (event.type === "complete") {
           play("success");
           if (settingsRef.current?.autoReadWord && event.result.kind === "word" && event.result.phonetic) {
             speak(record.selection.text, event.result.sourceLanguage);
           }
-          return { ...record, status: "complete", result: event.result, partial: undefined };
+          return { ...record, status: "complete", result: event.result };
         }
         if (event.type === "error") {
           play("error");
@@ -405,11 +433,13 @@ function ContentApp() {
     requestPort.onMessage.addListener(onMessage);
     requestPort.onDisconnect.addListener(onDisconnect);
     try {
+      const segments = getTranslationSegments(selection.content);
       requestPort.postMessage({
         type: "translate",
         requestId: selection.id,
-        text: selection.text,
+        text: segments.map((segment) => segment.text).join("\n"),
         contextText: selection.contextText,
+        segments,
         targetLanguage: currentSettings.targetLanguage,
       });
     } catch {
@@ -515,16 +545,29 @@ function ContentApp() {
     const currentSettings = settingsRef.current;
     if (!currentSettings?.enabled || isHostBlocked(location.hostname, currentSettings.blockedHosts) || await isHostPausedForSession(location.hostname)) return;
     disconnectRequest(true);
-    activeRequestIdRef.current = selection.id;
+    const segments = getTranslationSegments(selection.content);
+    const codeOnly = segments.length === 0;
+    activeRequestIdRef.current = codeOnly ? undefined : selection.id;
     setTriggerSelection(null);
     setRecords((current) => {
-      const next = [...current, { selection, status: "loading" as const }].slice(-20);
+      const next = [...current, codeOnly
+        ? {
+            selection,
+            status: "complete" as const,
+            result: {
+              kind: "text" as const,
+              sourceLanguage: "auto",
+              translation: selection.text,
+              segmentTranslations: [],
+            },
+          }
+        : { selection, status: "loading" as const }].slice(-20);
       setActiveIndex(next.length - 1);
       return next;
     });
     setPinned(false);
-    play("loading");
-    connectTranslation(selection, currentSettings);
+    play(codeOnly ? "success" : "loading");
+    if (!codeOnly) connectTranslation(selection, currentSettings);
   };
 
   const close = () => {
@@ -546,7 +589,7 @@ function ContentApp() {
   if (!settings?.enabled || isHostBlocked(location.hostname, settings.blockedHosts)) return null;
   const active = records[activeIndex];
   return (
-    <>
+    <div className="st-ui-root">
       {triggerSelection && isRectVisible(triggerSelection.rect) ? <Trigger selection={triggerSelection} mode={settings.triggerMode} activation={settings.triggerActivation} onTrigger={() => void startTranslation(triggerSelection)} /> : null}
       {active ? (
         <Modal
@@ -566,7 +609,7 @@ function ContentApp() {
           onDragStart={() => setPinned(true)}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 

@@ -74,7 +74,7 @@ async function streamChatCompletion(
   signal: AbortSignal,
   onText: (value: string) => void,
 ): Promise<string> {
-  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt);
+  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt, request.segments);
   const stream = await client.chat.completions.create(
     {
       model,
@@ -106,7 +106,7 @@ async function streamResponse(
   signal: AbortSignal,
   onText: (value: string) => void,
 ): Promise<string> {
-  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt);
+  const prompts = buildPrompts(request.text, request.contextText, targetLanguage, systemPrompt, request.segments);
   const stream = await client.responses.create(
     {
       model,
@@ -146,7 +146,7 @@ async function runTranslation(
     const raw = service.protocol === "responses"
       ? await streamResponse(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText)
       : await streamChatCompletion(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText);
-    const result = normalizePartOfSpeech(parseTranslationResult(raw), request.targetLanguage);
+    const result = normalizePartOfSpeech(parseTranslationResult(raw, request.segments), request.targetLanguage);
     post(port, { type: "complete", requestId: request.requestId, result });
   } catch (error) {
     if (isAbortError(error)) {
@@ -217,11 +217,12 @@ async function testConnection(requestId: string, port: chrome.runtime.Port): Pro
       requestId,
       text: "hello",
       contextText: "",
+      segments: [{ id: "s0", text: "hello" }],
       targetLanguage: settings.targetLanguage,
     };
     const controller = new AbortController();
     const client = getClient(service);
-    const prompts = buildPrompts(request.text, "", settings.targetLanguage, settings.systemPrompt);
+    const prompts = buildPrompts(request.text, "", settings.targetLanguage, settings.systemPrompt, request.segments);
     if (service.protocol === "responses") {
       await client.responses.create({ model: service.model, instructions: prompts.system, input: prompts.user }, { signal: controller.signal });
     } else {
