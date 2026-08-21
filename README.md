@@ -2,6 +2,8 @@
 
 SlidingTrans 是一个 Chromium Manifest V3 划词翻译扩展。选中网页中的单词或句子后，可以在原页面内查看 AI 翻译、词典释义、发音和复制结果。
 
+![sceenshot.png](https://cn-img.owoser.cn/images/2026/08/21/03677296bfad0ed82f647800a6284e9f.png)
+
 ## 开发
 
 ```bash
@@ -44,6 +46,12 @@ npm run test:e2e
 ## 开发版发布
 
 当前版本使用 `0.1.0-dev.0` 形式的预发布版本号。推送与 `package.json` 版本严格一致的标签（例如 `v0.1.0-dev.0`）后，GitHub Actions 会完成类型检查、单元测试、MV3 冒烟测试和扩展打包，并将 ZIP 上传到 GitHub Prerelease。也可以手动运行工作流，仅生成可下载的构建产物而不发布 Release。
+
+## 开源协议
+
+SlidingTrans 是独立实现的项目，与沉浸式翻译及其开发者不存在隶属或关联关系。本项目不包含沉浸式翻译当前闭源版本或旧开源仓库的源代码、品牌与图标。
+
+项目自身代码采用 [MIT License](LICENSE) 开源。项目使用的第三方依赖仍分别适用其各自的许可证。
 
 ## 当前范围
 
