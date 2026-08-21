@@ -44,8 +44,17 @@ let observedSystemPrompt = "";
 const server = http.createServer((request, response) => {
   if (request.url === "/page") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(`<!doctype html><html><body style="margin:0;min-height:2600px">
+    response.end(`<!doctype html><html><head><style>
+      sliding-trans { --primary: #ff0000 !important; --muted-foreground: #ff0000 !important; color: #ff0000 !important; font-family: serif !important; }
+      button, ol, ul, li, strong, em, code, pre { color: #ff0000 !important; font: 10px serif !important; list-style: none !important; background: #ffff00 !important; }
+    </style></head><body style="margin:0;min-height:2600px">
       <p id="selected" style="margin:80px;font-size:24px">Hello world from SlidingTrans.</p>
+      <ol id="formatted" start="4" style="margin:20px 80px">
+        <li>First <strong>bold phrase</strong></li>
+        <li><code>const preserved = true;</code> then <em>italic phrase</em><ul><li>Nested option</li></ul></li>
+      </ol>
+      <div id="line-breaks" style="margin:20px 80px">First line<br>Second line<br><br><br><br>Third line</div>
+      <pre style="margin:20px 80px"><code id="code-only">const answer = 42;</code></pre>
       <input id="editor-input" value="editable input text" style="margin:20px 80px;width:260px" />
       <div id="editor-rich" contenteditable="true" style="margin:20px 80px">editable rich text</div>
     </body></html>`);
@@ -65,25 +74,50 @@ const server = http.createServer((request, response) => {
     let requestBody = "";
     request.on("data", (chunk) => { requestBody += chunk; });
     request.on("end", () => {
+      let segments = [];
       try {
         const parsed = JSON.parse(requestBody);
         observedSystemPrompt = parsed.messages?.find((message) => message.role === "system")?.content ?? observedSystemPrompt;
+        const userPrompt = parsed.messages?.find((message) => message.role === "user")?.content ?? "";
+        const segmentMatch = userPrompt.match(/\[Translatable segments\]\n([^\n]+)/u);
+        segments = segmentMatch ? JSON.parse(segmentMatch[1]) : [];
       } catch {
         // The response stream still exercises the request cancellation path.
       }
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        "access-control-allow-origin": "*",
+      });
+      if (holdNextTranslation) {
+        holdNextTranslation = false;
+        response.on("close", () => { if (!response.writableEnded) slowRequestAborted = true; });
+        response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: '{"kind":"text","translation":"不应显示的流式译文' } }] })}${newline}`);
+        return;
+      }
+      const translations = new Map([
+        ["First", "第一项"],
+        ["bold phrase", "粗体短语"],
+        ["then", "然后"],
+        ["italic phrase", "斜体短语"],
+        ["Nested option", "嵌套选项"],
+        ["First line", "第一行"],
+        ["Second line", "第二行"],
+        ["Third line", "第三行"],
+      ]);
+      const segmentTranslations = segments.map((segment) => ({
+        id: segment.id,
+        translation: translations.get(segment.text) ?? "冒烟测试成功",
+      }));
+      const result = JSON.stringify({
+        kind: "text",
+        sourceLanguage: "en",
+        translation: segments.length > 1 ? "第一项 粗体短语 然后 斜体短语 嵌套选项" : "冒烟测试成功",
+        segmentTranslations,
+      });
+      response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: result } }] })}${newline}`);
+      response.write(`data: [DONE]${newline}`);
+      response.end();
     });
-    response.writeHead(200, {
-      "content-type": "text/event-stream",
-      "access-control-allow-origin": "*",
-    });
-    if (holdNextTranslation) {
-      holdNextTranslation = false;
-      response.on("close", () => { if (!response.writableEnded) slowRequestAborted = true; });
-      return;
-    }
-    response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: '{"kind":"text","sourceLanguage":"en","translation":"冒烟测试成功"}' } }] })}${newline}`);
-    response.write(`data: [DONE]${newline}`);
-    response.end();
     return;
   }
   response.writeHead(404);
@@ -157,6 +191,7 @@ try {
   assert.equal(await mockServiceItem.getByRole("button", { name: "使用 Mock 服务" }).count(), 0);
   const mockDeleteButton = mockServiceItem.getByRole("button", { name: "删除 Mock 服务" });
   assert.equal(await mockDeleteButton.evaluate((button) => getComputedStyle(button).color), "rgb(220, 38, 38)");
+  assert.equal(await mockDeleteButton.evaluate((button) => getComputedStyle(button).backgroundColor), "rgba(0, 0, 0, 0)");
   await mockServiceItem.locator(".service-item-main").click();
   assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   const createdServiceItem = options.locator(".service-item").last();
@@ -188,6 +223,15 @@ try {
   assert.equal(connectionButtonBox.x > apiKeyBox.x, true);
   assert.equal(Math.abs(connectionButtonBox.y - apiKeyBox.y) < 8, true);
   assert.equal(connectionRowBox.width >= serviceDetailsBox.width - 2, true);
+  await options.getByRole("textbox", { name: "系统提示词" }).fill("自定义提示词 {{targetLanguage}}");
+  await options.waitForTimeout(500);
+  const promptSection = options.locator(".system-prompt-section");
+  const promptHeaderBox = await promptSection.locator(".section-header").boundingBox();
+  const promptToolbarBox = await promptSection.getByRole("toolbar", { name: "系统提示词工具栏" }).boundingBox();
+  assert.equal(promptToolbarBox.x + promptToolbarBox.width > promptHeaderBox.x + promptHeaderBox.width - 2, true);
+  await promptSection.getByRole("button", { name: "重置" }).click();
+  await options.waitForTimeout(500);
+  assert.equal((await options.getByRole("textbox", { name: "系统提示词" }).inputValue()).startsWith("You are a professional multilingual translation engine."), true);
   await options.getByRole("textbox", { name: "系统提示词" }).fill("自定义提示词 {{targetLanguage}}");
   await options.waitForTimeout(500);
   assert.equal(modelCalls, 1);
@@ -235,17 +279,43 @@ try {
   assert.equal(await page.evaluate(() => Boolean(document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger"))), true);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.waitForTimeout(100);
   assert.equal(await page.evaluate(() => {
     const shadow = document.querySelector("sliding-trans").shadowRoot;
     const loader = shadow.querySelector('[role="status"]');
-    return Boolean(loader && loader.querySelectorAll("span > span").length >= 3 && loader.textContent.includes("正在翻译"));
+    const body = shadow.querySelector(".st-loading-body");
+    return Boolean(
+      loader
+      && body
+      && getComputedStyle(body).justifyContent === "flex-start"
+      && loader.firstElementChild?.querySelectorAll(":scope > span").length === 9
+      && loader.lastElementChild?.textContent === "正在翻译"
+      && loader.textContent.trim() === "正在翻译"
+      && !shadow.textContent.includes("不应显示的流式译文"),
+    );
   }), true);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="更多设置"]').click());
-  assert.equal(await page.evaluate(() => {
+  const menuState = await page.evaluate(() => {
     const menu = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-menu");
     const button = menu.querySelector("button");
-    return getComputedStyle(button).justifyContent === "flex-start" && getComputedStyle(button).textAlign === "left";
-  }), true);
+    const menuStyle = getComputedStyle(menu);
+    const longestButtonWidth = Math.max(...[...menu.querySelectorAll("button")].map((item) => item.getBoundingClientRect().width));
+    const horizontalChrome = Number.parseFloat(menuStyle.paddingLeft)
+      + Number.parseFloat(menuStyle.paddingRight)
+      + Number.parseFloat(menuStyle.borderLeftWidth)
+      + Number.parseFloat(menuStyle.borderRightWidth);
+    return {
+      width: menu.getBoundingClientRect().width,
+      computedWidth: menuStyle.width,
+      valid: menuStyle.width !== "210px"
+      && Math.abs(menu.getBoundingClientRect().width - longestButtonWidth - horizontalChrome) < 1
+      && getComputedStyle(button).justifyContent === "flex-start"
+      && getComputedStyle(button).textAlign === "left"
+      && [...menu.querySelectorAll("button")].some((item) => item.textContent.trim() === "永久关闭")
+      && !menu.textContent.includes("设置中恢复"),
+    };
+  });
+  assert.equal(menuState.valid, true, JSON.stringify(menuState));
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="更多设置"]').click());
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
   await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"), undefined, { timeout: 1000 });
@@ -256,9 +326,10 @@ try {
     document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
     document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
   });
-  await page.waitForTimeout(500);
-  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
+  await page.locator("sliding-trans .st-trigger").click();
   await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-sentence-translation")?.textContent === "冒烟测试成功", undefined, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-loading-body") === null), true);
   assert.equal(await page.evaluate(() => {
     const modal = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-modal").getBoundingClientRect();
     return modal.left >= 0 && modal.top >= 0 && modal.right <= innerWidth && modal.bottom <= innerHeight;
@@ -275,6 +346,117 @@ try {
   }), true);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
   await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.waitForTimeout(450);
+
+  await page.evaluate(() => {
+    const lines = document.querySelector("#line-breaks");
+    const range = document.createRange();
+    range.selectNodeContents(lines);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => {
+    const shadow = document.querySelector("sliding-trans")?.shadowRoot;
+    return Boolean(shadow?.querySelector(".st-structured-translation, .st-error-body"));
+  }, undefined, { timeout: 5000 });
+  const lineBreakState = await page.evaluate(() => {
+    const shadow = document.querySelector("sliding-trans").shadowRoot;
+    return {
+      result: shadow.querySelector(".st-structured-translation")?.textContent ?? "",
+      error: shadow.querySelector(".st-error-body")?.textContent ?? "",
+      loading: Boolean(shadow.querySelector(".st-loading-body")),
+    };
+  });
+  assert.equal(lineBreakState.loading, false);
+  assert.equal(lineBreakState.error, "");
+  assert.equal(lineBreakState.result.includes("第三行"), true);
+  assert.equal(await page.evaluate(() => {
+    const root = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-structured-translation");
+    const read = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
+      if (node instanceof HTMLBRElement) return "\n";
+      return [...node.childNodes].map(read).join("");
+    };
+    return read(root);
+  }), "第一行\n第二行\n\n第三行");
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.waitForTimeout(450);
+
+  await page.evaluate(() => {
+    const list = document.querySelector("#formatted");
+    const range = document.createRange();
+    range.selectNodeContents(list);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
+  await page.locator("sliding-trans .st-trigger").click();
+  await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-structured-translation strong")?.textContent === "粗体短语", undefined, { timeout: 5000 });
+  assert.deepEqual(await page.evaluate(() => {
+    const shadow = document.querySelector("sliding-trans").shadowRoot;
+    const result = shadow.querySelector(".st-structured-translation");
+    const list = result.querySelector("ol");
+    const nestedList = result.querySelector("ul");
+    const strong = result.querySelector("strong");
+    const emphasis = result.querySelector("em");
+    const code = result.querySelector("code");
+    return {
+      start: list.start,
+      items: list.querySelectorAll(":scope > li").length,
+      listStyle: getComputedStyle(list).listStyleType,
+      nestedListStyle: getComputedStyle(nestedList).listStyleType,
+      nestedListText: nestedList.textContent.trim(),
+      strongText: strong.textContent,
+      strongWeight: getComputedStyle(strong).fontWeight,
+      emphasisText: emphasis.textContent,
+      emphasisStyle: getComputedStyle(emphasis).fontStyle,
+      codeText: code.textContent,
+      codeColor: getComputedStyle(code).color,
+    };
+  }), {
+    start: 4,
+    items: 2,
+    listStyle: "decimal",
+    nestedListStyle: "disc",
+    nestedListText: "嵌套选项",
+    strongText: "粗体短语",
+    strongWeight: "700",
+    emphasisText: "斜体短语",
+    emphasisStyle: "italic",
+    codeText: "const preserved = true;",
+    codeColor: "rgb(39, 85, 63)",
+  });
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.waitForTimeout(450);
+
+  const callsBeforeCodeSelection = calls;
+  await page.evaluate(() => {
+    const code = document.querySelector("#code-only");
+    const range = document.createRange();
+    range.selectNodeContents(code);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-structured-translation pre code")?.textContent === "const answer = 42;");
+  assert.equal(calls, callsBeforeCodeSelection);
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
+  await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
+  await page.waitForTimeout(450);
 
   await page.evaluate(() => {
     const input = document.querySelector("#editor-input");
@@ -328,7 +510,7 @@ try {
     const logo = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo");
     return logo ? logo.naturalWidth : 512;
   }), 512);
-  assert.equal(calls, 3);
+  assert.equal(calls, 5);
   assert.equal(observedSystemPrompt, "自定义提示词 zh-CN");
   console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
 } finally {
