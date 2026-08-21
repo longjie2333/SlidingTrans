@@ -1,6 +1,7 @@
 name: Build development release
 
 on:
+  # Manual runs build an artifact; development tags also publish a prerelease.
   workflow_dispatch:
   push:
     tags:
