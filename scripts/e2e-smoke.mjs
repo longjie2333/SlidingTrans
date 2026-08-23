@@ -38,10 +38,15 @@ async function findChromiumExecutable() {
 const profilePath = await fs.mkdtemp(path.join(os.tmpdir(), "sliding-trans-e2e-"));
 let calls = 0;
 let modelCalls = 0;
+let deepLxCalls = 0;
 let holdNextTranslation = true;
 let slowRequestAborted = false;
 let observedSystemPrompt = "";
+let observedApiKey = "";
+let observedDeepLxToken = "";
+let observedDeepLxAuthorization = "";
 const server = http.createServer((request, response) => {
+  const requestUrl = request.url ? new URL(request.url, "http://localhost") : null;
   if (request.url === "/page") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html><html><head><style>
@@ -60,7 +65,7 @@ const server = http.createServer((request, response) => {
     </body></html>`);
     return;
   }
-  if (request.url?.endsWith("/models")) {
+  if (requestUrl?.pathname.endsWith("/models")) {
     modelCalls += 1;
     response.writeHead(200, {
       "content-type": "application/json",
@@ -69,8 +74,36 @@ const server = http.createServer((request, response) => {
     response.end(JSON.stringify({ data: [{ id: "gpt-z" }, { id: "gpt-a" }, ...Array.from({ length: 18 }, (_, index) => ({ id: `model-${String(index + 1).padStart(2, "0")}` }))] }));
     return;
   }
-  if (request.url?.endsWith("/chat/completions")) {
+  if (requestUrl?.pathname.endsWith("/translate")) {
+    deepLxCalls += 1;
+    observedDeepLxToken = requestUrl.searchParams.get("token") ?? "";
+    observedDeepLxAuthorization = request.headers.authorization ?? "";
+    let requestBody = "";
+    request.on("data", (chunk) => { requestBody += chunk; });
+    request.on("end", () => {
+      let text = "";
+      try {
+        text = JSON.parse(requestBody).text ?? "";
+      } catch {
+        // The request still receives a normal DeepLX response.
+      }
+      response.writeHead(200, {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+      });
+      response.end(JSON.stringify({
+        code: 200,
+        data: text.toLowerCase() === "hello" ? "你好" : `DeepLX:${text}`,
+        source_lang: "EN",
+        target_lang: "ZH",
+        method: "Free",
+      }));
+    });
+    return;
+  }
+  if (requestUrl?.pathname.endsWith("/chat/completions")) {
     calls += 1;
+    observedApiKey = request.headers.authorization ?? "";
     let requestBody = "";
     request.on("data", (chunk) => { requestBody += chunk; });
     request.on("end", () => {
@@ -143,14 +176,16 @@ try {
   assert.equal((await options.locator(".options-brand").textContent())?.trim(), "SlidingTrans");
   assert.equal(await options.locator(".service-new-button").evaluate((button) => getComputedStyle(button).color), "rgb(48, 164, 108)");
   const baseUrl = `http://127.0.0.1:${port}/v1`;
-  await options.evaluate(async (value) => {
+  const deepLxBaseUrl = `http://127.0.0.1:${port}`;
+  await options.evaluate(async (urls) => {
     await chrome.storage.local.set({
       slidingTransSettings: {
         enabled: true,
         targetLanguage: "zh-CN",
         services: [
-          { id: "mock", name: "Mock 服务", protocol: "chat-completions", baseUrl: value, model: "mock-model" },
-          ...Array.from({ length: 16 }, (_, index) => ({ id: `extra-${index}`, name: `额外服务 ${index + 1}`, protocol: "chat-completions", baseUrl: value, model: "mock-model" })),
+          { id: "mock", name: "Mock 服务", protocol: "openai-chat-completions", baseUrl: urls.openAi, model: "mock-model" },
+          { id: "deeplx", name: "DeepLX 服务", protocol: "deeplx", baseUrl: urls.deepLx, model: "" },
+          ...Array.from({ length: 16 }, (_, index) => ({ id: `extra-${index}`, name: `额外服务 ${index + 1}`, protocol: "openai-chat-completions", baseUrl: urls.openAi, model: "mock-model" })),
         ],
         activeServiceId: "mock",
         triggerMode: "mini",
@@ -160,9 +195,9 @@ try {
         ignoreInputSelections: true,
         blockedHosts: [],
       },
-      slidingTransServiceKeys: { mock: "e2e-key" },
+      slidingTransServiceKeys: { mock: "e2e-key", deeplx: "e2e-deeplx-token" },
     });
-  }, baseUrl);
+  }, { openAi: baseUrl, deepLx: deepLxBaseUrl });
 
   await options.reload();
   await options.waitForSelector("text=翻译服务");
@@ -183,7 +218,7 @@ try {
   assert.equal(await options.locator(".service-details .form-grid > label.full").count(), 2);
   assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   await options.getByRole("button", { name: "新建" }).click();
-  assert.equal(await options.locator(".service-item").count(), 18);
+  assert.equal(await options.locator(".service-item").count(), 19);
   const mockServiceItem = options.locator(".service-item").filter({ hasText: "Mock 服务" });
   await mockServiceItem.hover();
   await options.waitForTimeout(250);
@@ -198,7 +233,7 @@ try {
   const createdServiceName = (await createdServiceItem.locator(".service-item-name").textContent())?.trim();
   await createdServiceItem.hover();
   await createdServiceItem.getByRole("button", { name: `删除 ${createdServiceName}` }).evaluate((button) => button.click());
-  assert.equal(await options.locator(".service-item").count(), 17);
+  assert.equal(await options.locator(".service-item").count(), 18);
   await options.getByRole("button", { name: "获取可用模型" }).click();
   await options.getByText("已获取 20 个模型", { exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await options.locator("#model-selector").click();
@@ -235,6 +270,18 @@ try {
   await options.getByRole("textbox", { name: "系统提示词" }).fill("自定义提示词 {{targetLanguage}}");
   await options.waitForTimeout(500);
   assert.equal(modelCalls, 1);
+  await options.locator(".key-input-field").fill("");
+  await options.waitForTimeout(600);
+  const popupPage = await context.newPage();
+  await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popupPage.getByText("AI 划词翻译", { exact: false }).waitFor();
+  assert.equal(await popupPage.locator(".setup-notice").count(), 1);
+  await options.locator(".key-input-field").fill("e2e-key-ui");
+  await options.waitForTimeout(600);
+  const savedKeys = await options.evaluate(async () => (await chrome.storage.local.get("slidingTransServiceKeys")).slidingTransServiceKeys);
+  assert.equal(savedKeys.mock, "e2e-key-ui");
+  await popupPage.waitForFunction(() => document.querySelector(".setup-notice") === null);
+  await popupPage.close();
 
   const publicSettings = await options.evaluate(async () => (await chrome.storage.local.get("slidingTransSettings")).slidingTransSettings);
   assert.equal(Object.hasOwn(publicSettings, "apiKey"), false);
@@ -510,9 +557,47 @@ try {
     const logo = document.querySelector("sliding-trans").shadowRoot.querySelector(".st-brand .st-logo");
     return logo ? logo.naturalWidth : 512;
   }), 512);
-  assert.equal(calls, 5);
+  assert.equal(observedApiKey, "Bearer e2e-key-ui");
   assert.equal(observedSystemPrompt, "自定义提示词 zh-CN");
-  console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation");
+
+  const deepLxCallsBefore = deepLxCalls;
+  const callsBeforeDeepLx = calls;
+  await options.bringToFront();
+  await options.locator(".service-item").filter({ hasText: "DeepLX 服务" }).locator(".service-item-main").click();
+  await options.waitForFunction(() => document.querySelector(".service-item.active .service-item-name")?.textContent?.trim() === "DeepLX 服务");
+  await options.waitForTimeout(600);
+  assert.equal(await options.locator("#model-selector").count(), 0);
+  assert.equal(await options.getByRole("button", { name: "获取可用模型" }).count(), 0);
+  assert.equal(await options.locator(".service-details").getByText("访问令牌（可选）").count(), 1);
+  await page.bringToFront();
+  await page.evaluate(() => {
+    const textNode = document.querySelector("#selected").firstChild;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 5);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
+  await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
+  await page.waitForFunction(() => {
+    const root = document.querySelector("sliding-trans")?.shadowRoot;
+    return Boolean(root?.querySelector(".st-modal") && root.querySelector(".st-structured-translation")?.textContent === "你好");
+  }, undefined, { timeout: 5000 });
+  assert.equal(deepLxCalls - deepLxCallsBefore, 1);
+  assert.equal(calls, callsBeforeDeepLx);
+  assert.equal(observedDeepLxToken, "e2e-deeplx-token");
+  assert.equal(observedDeepLxAuthorization, "");
+  assert.equal(await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-model").textContent.trim()), "DeepLX");
+  const deepLxPopup = await context.newPage();
+  await deepLxPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await deepLxPopup.getByText("AI 划词翻译", { exact: false }).waitFor();
+  assert.equal(await deepLxPopup.locator(".setup-notice").count(), 0);
+  await deepLxPopup.close();
+  console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation -> DeepLX translation");
 } finally {
   await context.close();
   server.close();

@@ -7,6 +7,7 @@ describe("settings", () => {
     expect(settings.targetLanguage).toBe("zh-CN");
     expect(settings.triggerMode).toBe("mini");
     expect(settings.triggerActivation).toBe("hover");
+    expect(settings.services[0]?.protocol).toBe("openai-chat-completions");
     expect(settings.systemPrompt).toContain("{{targetLanguage}}");
     expect(settings.ignoreInputSelections).toBe(true);
   });
@@ -39,5 +40,29 @@ describe("settings", () => {
     expect(parsed.activeServiceId).toBe("local");
     expect(parsed.services.find((service) => service.id === "local")?.apiKey).toBe("two");
     expect(parseContentSettings(contentSettings)).not.toHaveProperty("systemPrompt");
+  });
+
+  it("accepts a DeepLX service without a model name", () => {
+    const settings = createDefaultSettings();
+    const service = {
+      ...settings.services[0]!,
+      id: "deeplx",
+      name: "DeepLX",
+      protocol: "deeplx" as const,
+      baseUrl: "http://localhost:1188",
+      model: "",
+    };
+    const { apiKey: _, ...publicService } = service;
+    const contentSettings = {
+      ...settings,
+      services: settings.services.map(({ apiKey: _apiKey, ...current }) => current).concat(publicService),
+      activeServiceId: "deeplx",
+    };
+    const parsed = parseSettings(contentSettings, { openai: "one", deeplx: "" });
+    expect(parsed.services.find((candidate) => candidate.id === "deeplx")).toMatchObject({
+      protocol: "deeplx",
+      baseUrl: "http://localhost:1188",
+      model: "",
+    });
   });
 });

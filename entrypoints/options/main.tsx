@@ -5,7 +5,7 @@ import { play } from "cuelume";
 import { toast } from "sonner";
 import { loadSettings, normalizeHost, saveSettings, TARGET_LANGUAGES } from "../../src/shared/settings";
 import { SELECTION_SYSTEM_PROMPT } from "../../src/shared/translation";
-import { API_PROTOCOLS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
+import { API_PROTOCOLS, API_PROTOCOL_LABELS, TRIGGER_ACTIVATIONS, TRIGGER_MODES, type SlidingTransSettings, type TranslationService, type TranslationStreamEvent } from "../../src/shared/types";
 import { Button } from "../../src/ui/button";
 import { Card } from "../../src/ui/card";
 import { Checkbox } from "../../src/ui/checkbox";
@@ -71,7 +71,7 @@ function OptionsApp() {
     const service: TranslationService = {
       id: crypto.randomUUID(),
       name: `服务 ${settings.services.length + 1}`,
-      protocol: "chat-completions",
+      protocol: "openai-chat-completions",
       baseUrl: "https://api.openai.com/v1",
       apiKey: "",
       model: "",
@@ -125,6 +125,10 @@ function OptionsApp() {
     timeoutId = window.setTimeout(() => finish({ type: "error", text: "连接超时" }), 30000);
   };
   const fetchModels = async () => {
+    if (activeService?.protocol === "deeplx") {
+      toast.error("DeepLX 协议不支持模型列表");
+      return;
+    }
     const requestId = crypto.randomUUID();
     setLoadingModels(true);
     play("loading");
@@ -196,10 +200,10 @@ function OptionsApp() {
           <div className="service-details">
             <div className="form-grid">
               <label>服务名称<Input value={activeService?.name ?? ""} placeholder="例如 OpenAI" onChange={(event) => updateActiveService({ name: event.target.value })} /></label>
-              <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onValueChange={(value) => updateActiveService({ protocol: value as TranslationService["protocol"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value={API_PROTOCOLS[0]}>Chat Completions</SelectItem><SelectItem value={API_PROTOCOLS[1]}>Responses</SelectItem></SelectContent></Select></label>
-              <label className="full">模型<div className="model-picker"><div className="model-choice-controls"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</div></label>
-              <label className="full">API Base URL<Input value={activeService?.baseUrl ?? ""} placeholder="https://api.openai.com/v1" onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
-              <div className="connection-row full"><label className="api-key-field">API Key<div className="key-input"><Input className="key-input-field" type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button className="key-visibility-button" variant="outline" size="icon" type="button" aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label><Button className="connection-button secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button></div>
+              <label>协议<Select value={activeService?.protocol ?? API_PROTOCOLS[0]} onValueChange={(value) => { const protocol = value as TranslationService["protocol"]; updateActiveService({ protocol }); setModels([]); setCustomModel(false); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{API_PROTOCOLS.map((protocol) => <SelectItem key={protocol} value={protocol}>{API_PROTOCOL_LABELS[protocol]}</SelectItem>)}</SelectContent></Select></label>
+              {activeService?.protocol !== "deeplx" ? <label className="full">模型<div className="model-picker"><div className="model-choice-controls"><Select value={modelChoice} onValueChange={(value) => { setCustomModel(value === CUSTOM_MODEL_VALUE); updateActiveService({ model: value === CUSTOM_MODEL_VALUE ? "" : value }); }}><SelectTrigger id="model-selector" aria-label="选择模型"><SelectValue placeholder="选择模型" /></SelectTrigger><SelectContent>{models.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}<SelectItem value={CUSTOM_MODEL_VALUE}>自定义模型</SelectItem></SelectContent></Select><Button className="model-discover-button" variant="outline" size="icon" type="button" aria-label="获取可用模型" title="获取可用模型" disabled={loadingModels} onClick={() => void fetchModels()}><RefreshCw className={loadingModels ? "spin" : undefined} size={16} /></Button></div>{modelChoice === CUSTOM_MODEL_VALUE ? <Input className="custom-model-input" value={activeModel} placeholder="输入自定义模型名称" onChange={(event) => updateActiveService({ model: event.target.value })} /> : null}</div></label> : null}
+              <label className="full">API Base URL<Input value={activeService?.baseUrl ?? ""} placeholder={activeService?.protocol === "deeplx" ? "http://localhost:1188" : "https://api.openai.com/v1"} onChange={(event) => updateActiveService({ baseUrl: event.target.value })} /></label>
+              <div className="connection-row full"><label className="api-key-field">{activeService?.protocol === "deeplx" ? "访问令牌（可选）" : "API Key"}<div className="key-input"><Input className="key-input-field" type={showKey ? "text" : "password"} value={activeService?.apiKey ?? ""} placeholder={activeService?.protocol === "deeplx" ? "DeepLX 未启用令牌时留空" : undefined} onChange={(event) => updateActiveService({ apiKey: event.target.value })} /><Button className="key-visibility-button" variant="outline" size="icon" type="button" aria-label={showKey ? "隐藏密钥" : "显示密钥"} onClick={() => setShowKey((value) => !value)}>{showKey ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div></label><Button className="connection-button secondary-button text-brand border-brand bg-background hover:bg-brand-soft" variant="outline" type="button" disabled={testing} onClick={() => void testConnection()}>{testing ? "测试中…" : "测试连接"}</Button></div>
             </div>
             <p className="hint">API Key 仅保存在此浏览器的本地扩展存储中，不会同步到云端，也不会发送到 SlidingTrans。浏览器本地存储未加密，请勿在共享设备上使用。</p>
           </div>

@@ -60,6 +60,9 @@ function StructuredTranslation({
   content: SelectionContentNode[];
   result: TranslationResult;
 }) {
+  if (result.segmentTranslations === undefined) {
+    return <div className="st-structured-translation">{result.translation}</div>;
+  }
   const translations = new Map(result.segmentTranslations?.map((segment) => [segment.id, segment.translation]));
   const renderNode = (node: SelectionContentNode, key: string): React.ReactNode => {
     if (node.type === "text") {
@@ -271,6 +274,7 @@ function Modal({
   onDragStart: () => void;
 }) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const activeService = settings.services.find((service) => service.id === settings.activeServiceId);
   const [placement, setPlacement] = useState(() => getModalPlacement(record.selection.rect));
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | undefined>(undefined);
@@ -317,7 +321,7 @@ function Modal({
     >
       <div className="st-modal-header" onPointerDown={onHeaderPointerDown} onPointerMove={onHeaderPointerMove} onPointerUp={onHeaderPointerUp}>
         <div className="st-brand"><img className="st-logo" src={logoUrl} alt="" /><span>SlidingTrans</span></div>
-        <div className="st-model">{settings.services.find((service) => service.id === settings.activeServiceId)?.model || "未配置模型"}</div>
+        <div className="st-model">{activeService?.model || (activeService?.protocol === "deeplx" ? "DeepLX" : "未配置模型")}</div>
         <div className="st-header-actions">
           {records.length > 1 ? (
             <div className="st-history">

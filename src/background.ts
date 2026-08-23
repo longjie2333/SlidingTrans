@@ -1,11 +1,13 @@
 import OpenAI from "openai";
 import { defineBackground } from "wxt/utils/define-background";
+import { translateWithDeepLx } from "./background/deeplx";
 import { getActiveService, loadSettings } from "./shared/settings";
 import { parseModelIds } from "./shared/models";
 import { buildPrompts, extractPartialTranslation, normalizePartOfSpeech, parseTranslationResult } from "./shared/translation";
 import type {
   BackgroundRequest,
   TranslationRequest,
+  TranslationResult,
   TranslationStreamEvent,
 } from "./shared/types";
 
@@ -56,7 +58,7 @@ function errorMessage(error: unknown): string {
   if (candidate.status === 401) return "API Key 无效，请检查后重试";
   if (candidate.status === 403) return "当前 API Key 没有访问该模型或接口的权限";
   if (candidate.status === 429) return "请求过于频繁或额度不足，请稍后重试";
-  if (candidate.name === "APIConnectionTimeoutError" || candidate.code === "ETIMEDOUT" || candidate.message?.toLowerCase().includes("timed out")) {
+  if (candidate.name === "APIConnectionTimeoutError" || candidate.name === "TimeoutError" || candidate.code === "ETIMEDOUT" || candidate.message?.toLowerCase().includes("timed out")) {
     return "连接翻译服务超时，请检查网络或接口地址";
   }
   if (candidate.name === "APIConnectionError") return "无法连接翻译服务，请检查网络和 API Base URL";
@@ -135,18 +137,23 @@ async function runTranslation(
   try {
     const settings = await loadSettings();
     const service = getActiveService(settings);
-    const client = getClient(service);
-    let latestPartial = "";
-    const onText = (buffer: string) => {
-      const partial = extractPartialTranslation(buffer);
-      if (partial === undefined || partial === latestPartial) return;
-      latestPartial = partial;
-      post(port, { type: "partial", requestId: request.requestId, translation: partial });
-    };
-    const raw = service.protocol === "responses"
-      ? await streamResponse(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText)
-      : await streamChatCompletion(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText);
-    const result = normalizePartOfSpeech(parseTranslationResult(raw, request.segments), request.targetLanguage);
+    let result: TranslationResult;
+    if (service.protocol === "deeplx") {
+      result = await translateWithDeepLx(service, request.text, request.targetLanguage, controller.signal);
+    } else {
+      const client = getClient(service);
+      let latestPartial = "";
+      const onText = (buffer: string) => {
+        const partial = extractPartialTranslation(buffer);
+        if (partial === undefined || partial === latestPartial) return;
+        latestPartial = partial;
+        post(port, { type: "partial", requestId: request.requestId, translation: partial });
+      };
+      const raw = service.protocol === "openai-responses"
+        ? await streamResponse(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText)
+        : await streamChatCompletion(client, service.model, request, request.targetLanguage, settings.systemPrompt, controller.signal, onText);
+      result = normalizePartOfSpeech(parseTranslationResult(raw, request.segments), request.targetLanguage);
+    }
     post(port, { type: "complete", requestId: request.requestId, result });
   } catch (error) {
     if (isAbortError(error)) {
@@ -200,6 +207,10 @@ async function listModels(requestId: string, port: chrome.runtime.Port): Promise
   try {
     const settings = await loadSettings();
     const service = getActiveService(settings);
+    if (service.protocol === "deeplx") {
+      post(port, { type: "error", requestId, message: "DeepLX 协议不支持模型列表" });
+      return;
+    }
     const models = parseModelIds(await getAuthenticatedClient(service).models.list());
     if (!models.length) throw new Error("接口没有返回可用模型");
     post(port, { type: "models", requestId, models });
@@ -212,6 +223,12 @@ async function testConnection(requestId: string, port: chrome.runtime.Port): Pro
   try {
     const settings = await loadSettings();
     const service = getActiveService(settings);
+    if (service.protocol === "deeplx") {
+      const controller = new AbortController();
+      await translateWithDeepLx(service, "hello", settings.targetLanguage, controller.signal);
+      post(port, { type: "connection-ok", requestId, model: "DeepLX" });
+      return;
+    }
     const request: TranslationRequest = {
       type: "translate",
       requestId,
@@ -223,7 +240,7 @@ async function testConnection(requestId: string, port: chrome.runtime.Port): Pro
     const controller = new AbortController();
     const client = getClient(service);
     const prompts = buildPrompts(request.text, "", settings.targetLanguage, settings.systemPrompt, request.segments);
-    if (service.protocol === "responses") {
+    if (service.protocol === "openai-responses") {
       await client.responses.create({ model: service.model, instructions: prompts.system, input: prompts.user }, { signal: controller.signal });
     } else {
       await client.chat.completions.create({ model: service.model, messages: [{ role: "system", content: prompts.system }, { role: "user", content: prompts.user }] }, { signal: controller.signal });

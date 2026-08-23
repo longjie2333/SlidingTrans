@@ -12,7 +12,7 @@ const serviceNameSchema = z.string().trim().min(1).max(100);
 const serviceSchema = z.object({
   id: serviceIdSchema,
   name: serviceNameSchema,
-  protocol: z.enum(["chat-completions", "responses"]),
+  protocol: z.enum(["openai-chat-completions", "openai-responses", "deeplx"]),
   baseUrl: z.url({ protocol: /^(https?)$/ }),
   apiKey: apiKeySchema,
   model: z.string().trim().max(200),
@@ -39,7 +39,7 @@ function createDefaultService(): TranslationService {
   return {
     id: "openai",
     name: "OpenAI",
-    protocol: "chat-completions",
+    protocol: "openai-chat-completions",
     baseUrl: "https://api.openai.com/v1",
     apiKey: "",
     model: "",

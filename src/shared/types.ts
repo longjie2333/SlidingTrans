@@ -1,6 +1,11 @@
-export const API_PROTOCOLS = ["chat-completions", "responses"] as const;
+export const API_PROTOCOLS = ["openai-chat-completions", "openai-responses", "deeplx"] as const;
 export const TRIGGER_MODES = ["mini", "icon", "direct"] as const;
 export const TRIGGER_ACTIVATIONS = ["hover", "click"] as const;
+export const API_PROTOCOL_LABELS: Record<ApiProtocol, string> = {
+  "openai-chat-completions": "OpenAI Chat Completions",
+  "openai-responses": "OpenAI Responses",
+  deeplx: "DeepLX",
+};
 
 export type ApiProtocol = (typeof API_PROTOCOLS)[number];
 export type TriggerMode = (typeof TRIGGER_MODES)[number];
