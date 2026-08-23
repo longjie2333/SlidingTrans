@@ -550,11 +550,11 @@ function ContentApp() {
     if (!currentSettings?.enabled || isHostBlocked(location.hostname, currentSettings.blockedHosts) || await isHostPausedForSession(location.hostname)) return;
     disconnectRequest(true);
     const segments = getTranslationSegments(selection.content);
-    const codeOnly = segments.length === 0;
-    activeRequestIdRef.current = codeOnly ? undefined : selection.id;
+    const localOnly = segments.length === 0;
+    activeRequestIdRef.current = localOnly ? undefined : selection.id;
     setTriggerSelection(null);
     setRecords((current) => {
-      const next = [...current, codeOnly
+      const next = [...current, localOnly
         ? {
             selection,
             status: "complete" as const,
@@ -570,8 +570,8 @@ function ContentApp() {
       return next;
     });
     setPinned(false);
-    play(codeOnly ? "success" : "loading");
-    if (!codeOnly) connectTranslation(selection, currentSettings);
+    play(localOnly ? "success" : "loading");
+    if (!localOnly) connectTranslation(selection, currentSettings);
   };
 
   const close = () => {

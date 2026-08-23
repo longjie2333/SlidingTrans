@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompts, extractPartialTranslation, normalizePartOfSpeech, parseTranslationResult } from "./translation";
+import { buildPrompts, extractPartialTranslation, normalizePartOfSpeech, parseTranslationResult, SELECTION_SYSTEM_PROMPT } from "./translation";
 
 describe("selection translation response", () => {
   it("parses a dictionary result", () => {
@@ -25,6 +25,11 @@ describe("selection translation response", () => {
 
   it("uses a custom system prompt and replaces the target language token", () => {
     expect(buildPrompts("Hello", "", "日语", "自定义 {{targetLanguage}}").system).toBe("自定义 日语");
+  });
+
+  it("requires code segments to be translated instead of preserved", () => {
+    expect(SELECTION_SYSTEM_PROMPT).toContain("This includes code blocks, code lines, and inline code");
+    expect(SELECTION_SYSTEM_PROMPT).not.toContain("Code is excluded");
   });
 
   it("normalizes English parts of speech to standard abbreviations", () => {

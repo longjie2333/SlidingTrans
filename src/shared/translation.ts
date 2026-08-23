@@ -34,7 +34,7 @@ Translate selected text from its detected source language into {{targetLanguage}
 Return only valid JSON, never Markdown or commentary.
 For a single word, return kind "word", a sourceLanguage, phonetic notation in the source language, a concise translation, definitions grouped by part of speech, natural example sentences, and contextualAnalysis.
 For a single word, partOfSpeech must use the standard abbreviation of {{targetLanguage}}. For English use forms such as n., v., adj., adv., prep., pron., conj., and interj.; never spell out the English part of speech.
-For a phrase or sentence, return kind "text", sourceLanguage, translation, and segmentTranslations. Translate every supplied segment exactly once, preserve its ID, and never merge or omit segments. Code is excluded from the supplied segments and must not be translated.
+For a phrase or sentence, return kind "text", sourceLanguage, translation, and segmentTranslations. Translate every supplied segment exactly once, preserve its ID, and never merge or omit segments. This includes code blocks, code lines, and inline code; never return a supplied code segment unchanged.
 All explanations, definitions, examples, contextualAnalysis, and translation must be in {{targetLanguage}}.
 Use this exact shape:
 {"kind":"word|text","sourceLanguage":"en","translation":"...","phonetic":"...","definitions":[{"partOfSpeech":"noun","meaning":"...","example":{"source":"...","target":"..."}}],"contextualAnalysis":"...","segmentTranslations":[{"id":"s0","translation":"..."}]}`;

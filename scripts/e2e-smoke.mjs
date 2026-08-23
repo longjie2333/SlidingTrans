@@ -130,12 +130,14 @@ const server = http.createServer((request, response) => {
       const translations = new Map([
         ["First", "第一项"],
         ["bold phrase", "粗体短语"],
+        ["const preserved = true;", "常量 preserved = true;"],
         ["then", "然后"],
         ["italic phrase", "斜体短语"],
         ["Nested option", "嵌套选项"],
         ["First line", "第一行"],
         ["Second line", "第二行"],
         ["Third line", "第三行"],
+        ["const answer = 42;", "常量答案 = 42；"],
       ]);
       const segmentTranslations = segments.map((segment) => ({
         id: segment.id,
@@ -479,7 +481,7 @@ try {
     strongWeight: "700",
     emphasisText: "斜体短语",
     emphasisStyle: "italic",
-    codeText: "const preserved = true;",
+    codeText: "常量 preserved = true;",
     codeColor: "rgb(39, 85, 63)",
   });
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
@@ -499,8 +501,8 @@ try {
   });
   await page.waitForFunction(() => Boolean(document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-trigger")));
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector(".st-trigger").click());
-  await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-structured-translation pre code")?.textContent === "const answer = 42;");
-  assert.equal(calls, callsBeforeCodeSelection);
+  await page.waitForFunction(() => document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-structured-translation pre code")?.textContent === "常量答案 = 42；", undefined, { timeout: 5000 });
+  assert.equal(calls, callsBeforeCodeSelection + 1);
   await page.evaluate(() => document.querySelector("sliding-trans").shadowRoot.querySelector('button[aria-label="关闭"]').click());
   await page.waitForFunction(() => !document.querySelector("sliding-trans")?.shadowRoot?.querySelector(".st-modal"));
   await page.waitForTimeout(450);
@@ -558,6 +560,7 @@ try {
     return logo ? logo.naturalWidth : 512;
   }), 512);
   assert.equal(observedApiKey, "Bearer e2e-key-ui");
+  assert.equal(calls, 6);
   assert.equal(observedSystemPrompt, "自定义提示词 zh-CN");
 
   const deepLxCallsBefore = deepLxCalls;

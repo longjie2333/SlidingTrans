@@ -89,7 +89,7 @@ describe("selection extraction", () => {
     document.body.innerHTML = "";
   });
 
-  it("captures list and inline formatting while excluding code from translation segments", () => {
+  it("captures list and inline formatting while including code translation segments", () => {
     document.body.innerHTML = `
       <ol id="selected-list" start="3">
         <li>First <strong>bold</strong></li>
@@ -112,6 +112,7 @@ describe("selection extraction", () => {
     expect(getTranslationSegments(snapshot.content).map((segment) => segment.text)).toEqual([
       "First",
       "bold",
+      "const value = 1",
       "and",
       "italic",
       "Nested option",
@@ -121,7 +122,7 @@ describe("selection extraction", () => {
     document.body.innerHTML = "";
   });
 
-  it("keeps a code-only selection local and creates no translation segments", () => {
+  it("creates translation segments from a code-only selection", () => {
     document.body.innerHTML = '<pre><code id="source">const answer = 42;</code></pre>';
     const source = document.querySelector("#source")!;
     const range = document.createRange();
@@ -132,7 +133,7 @@ describe("selection extraction", () => {
     selection.addRange(range);
 
     const snapshot = readSelection(document)!;
-    expect(getTranslationSegments(snapshot.content)).toEqual([]);
+    expect(getTranslationSegments(snapshot.content).map((segment) => segment.text)).toEqual(["const answer = 42;"]);
     expect(JSON.stringify(snapshot.content)).toContain('"tag":"code"');
 
     selection.removeAllRanges();

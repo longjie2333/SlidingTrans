@@ -104,11 +104,9 @@ export function normalizeLineBreaks(value: string): string {
 function serializeText(
   value: string,
   state: { nextSegment: number },
-  inCode: boolean,
 ): SelectionContentNode[] {
   const text = normalizeLineBreaks(value);
   if (!text) return [];
-  if (inCode) return [{ type: "text", text }];
   return text.split(/(\n[\t ]*)/u).filter(Boolean).map((part) => ({
     type: "text" as const,
     text: part,
@@ -116,24 +114,17 @@ function serializeText(
   }));
 }
 
-function stripSegmentIds(node: SelectionContentNode): SelectionContentNode {
-  if (node.type === "text") return { type: "text", text: node.text };
-  return { ...node, children: node.children.map(stripSegmentIds) };
-}
-
 function serializeSelectionNode(
   node: Node,
   state: { nextSegment: number },
-  inCode = false,
 ): SelectionContentNode[] {
   if (node.nodeType === Node.TEXT_NODE) {
-    return serializeText(node.textContent ?? "", state, inCode);
+    return serializeText(node.textContent ?? "", state);
   }
   if (!(node instanceof Element || node instanceof DocumentFragment)) return [];
   if (node instanceof Element && ["SCRIPT", "STYLE", "NOSCRIPT"].includes(node.tagName)) return [];
   const tag = node instanceof Element ? ELEMENT_TAGS.get(node.tagName) : undefined;
-  const code = inCode || tag === "code" || tag === "pre";
-  const children = Array.from(node.childNodes).flatMap((child) => serializeSelectionNode(child, state, code));
+  const children = Array.from(node.childNodes).flatMap((child) => serializeSelectionNode(child, state));
   if (!tag) return children;
   return [{
     type: "element",
@@ -186,7 +177,6 @@ function selectionContent(range: Range): SelectionContentNode[] {
   while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
     const tag = ELEMENT_TAGS.get(ancestor.tagName);
     if (tag && WRAPPABLE_ANCESTOR_TAGS.has(tag) && !contentHasOuterTag(content, tag)) {
-      if (tag === "code" || tag === "pre") content = content.map(stripSegmentIds);
       content = [{
         type: "element",
         tag,
@@ -232,7 +222,7 @@ function inputSnapshot(active: HTMLInputElement | HTMLTextAreaElement): Selectio
     id: createSelectionId(),
     text,
     contextText: active.value.slice(valueStart, valueEnd).slice(0, CONTEXT_LIMIT * 3),
-    content: serializeText(text, { nextSegment: 0 }, false),
+    content: serializeText(text, { nextSegment: 0 }),
     rect: rectFromDomRect(active.getBoundingClientRect()),
     source: "input",
     frameUrl: location.href,
