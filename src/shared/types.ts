@@ -36,6 +36,7 @@ export interface SlidingTransSettings {
   ignoreInputSelections: boolean;
   pageTranslationEnabled: boolean;
   pageTranslationMode: PageTranslationMode;
+  pageTranslationHosts: string[];
   blockedHosts: string[];
 }
 

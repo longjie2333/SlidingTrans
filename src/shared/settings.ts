@@ -31,6 +31,7 @@ const settingsSchema = z.object({
   ignoreInputSelections: z.boolean(),
   pageTranslationEnabled: z.boolean().default(false),
   pageTranslationMode: z.enum(["below", "replace"]).default("below"),
+  pageTranslationHosts: z.array(z.string().trim().min(1).max(253)).max(500).default([]),
   blockedHosts: z.array(z.string().trim().min(1).max(253)).max(500),
 });
 const contentSettingsSchema = settingsSchema.omit({ services: true, systemPrompt: true }).extend({ services: z.array(publicServiceSchema).min(1).max(20) });
@@ -86,6 +87,7 @@ export function createDefaultSettings(uiLanguage = "zh-CN"): SlidingTransSetting
     ignoreInputSelections: true,
     pageTranslationEnabled: false,
     pageTranslationMode: "below",
+    pageTranslationHosts: [],
     blockedHosts: [],
   };
 }

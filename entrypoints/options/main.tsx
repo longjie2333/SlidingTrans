@@ -229,9 +229,9 @@ function OptionsApp() {
           <label>翻译显示方式<Select value={settings.pageTranslationMode} onValueChange={(value) => update({ pageTranslationMode: value as SlidingTransSettings["pageTranslationMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="below">原文下方显示</SelectItem><SelectItem value="replace">直接替换原文</SelectItem></SelectContent></Select></label>
         </div>
         <div className="check-list">
-          <label><Checkbox checked={settings.pageTranslationEnabled} onCheckedChange={(checked) => update({ pageTranslationEnabled: checked === true })} /> 仅翻译当前可视区域</label>
+          <label><Checkbox checked={settings.pageTranslationEnabled} onCheckedChange={(checked) => update({ pageTranslationEnabled: checked === true })} /> 允许页面翻译功能</label>
         </div>
-        <p className="hint">滚动或页面新增内容进入可视区域后会继续翻译。翻译请求按文本节点排队，并在离开页面时取消未完成请求。</p>
+        <p className="hint">从扩展弹窗点击“翻译此页”后会记住当前网站。滚动或页面新增内容进入可视区域后会继续翻译；点击“显示原文”会停止该网站的自动翻译。</p>
       </Card>
       <Card className="settings-section system-prompt-section">
         <div className="section-header">

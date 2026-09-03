@@ -12,6 +12,7 @@ describe("settings", () => {
     expect(settings.ignoreInputSelections).toBe(true);
     expect(settings.pageTranslationEnabled).toBe(false);
     expect(settings.pageTranslationMode).toBe("below");
+    expect(settings.pageTranslationHosts).toEqual([]);
   });
 
   it("matches a blocked domain and its subdomains", () => {

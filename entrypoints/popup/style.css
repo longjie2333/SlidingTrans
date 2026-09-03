@@ -21,6 +21,13 @@ button, select { font: inherit; }
 .popup-site-section small { margin-top: 3px; color: #888; font-size: 11px; }
 .site-toggle { font-size: 11px; }
 .site-toggle.blocked { border-color: #888; color: #666; }
+.popup-page-translation { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 0; border-bottom: 1px solid #eee; }
+.popup-page-translation-copy { display: flex; align-items: center; gap: 8px; min-width: 0; color: #30A46C; }
+.popup-page-translation-copy > div { min-width: 0; }
+.popup-page-translation-copy strong, .popup-page-translation-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-page-translation-copy strong { color: #252525; font-size: 12px; }
+.popup-page-translation-copy small { margin-top: 3px; color: #888; font-size: 11px; }
+.page-translation-toggle { flex: 0 0 auto; font-size: 11px; }
 .setup-notice { margin-top: 14px; padding: 9px 10px; border-radius: 6px; background: #EFFAF5; color: #257D52; font-size: 12px; line-height: 1.5; }
 .popup-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; }
 .popup-footer a { display: inline-flex; align-items: center; gap: 5px; color: #777; text-decoration: none; cursor: pointer; font-size: 12px; }
@@ -29,5 +36,7 @@ button, select { font: inherit; }
 @media (prefers-color-scheme: dark) {
   body { background: #202122; color: #eee; }
   .popup-header, .popup-section { border-color: #393a3b; }
+  .popup-page-translation { border-color: #393a3b; }
+  .popup-page-translation-copy strong { color: #eee; }
   .setup-notice { background: #18392B; color: #79D2A5; }
 }

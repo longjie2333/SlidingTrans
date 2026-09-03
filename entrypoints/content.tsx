@@ -550,7 +550,8 @@ function ContentApp() {
   useEffect(() => {
     pageTranslationRef.current?.dispose();
     pageTranslationRef.current = undefined;
-    if (!settings?.enabled || !settings.pageTranslationEnabled || isHostBlocked(location.hostname, settings.blockedHosts)) return;
+    const siteAutoTranslated = settings?.pageTranslationHosts.some((host) => isHostBlocked(location.hostname, [host]));
+    if (!settings?.enabled || !settings.pageTranslationEnabled || !siteAutoTranslated || isHostBlocked(location.hostname, settings.blockedHosts)) return;
     const manager = new PageTranslationManager({
       mode: settings.pageTranslationMode,
       translate: requestPageTranslation,
@@ -565,7 +566,7 @@ function ContentApp() {
       manager.dispose();
       if (pageTranslationRef.current === manager) pageTranslationRef.current = undefined;
     };
-  }, [settings?.enabled, settings?.pageTranslationEnabled, settings?.blockedHosts.join(",")]);
+  }, [settings?.enabled, settings?.pageTranslationEnabled, settings?.pageTranslationHosts.join(","), settings?.blockedHosts.join(",")]);
 
   useEffect(() => {
     if (settings?.pageTranslationMode) pageTranslationRef.current?.setMode(settings.pageTranslationMode);
