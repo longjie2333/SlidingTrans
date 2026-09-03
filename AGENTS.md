@@ -53,6 +53,7 @@ npm run zip
 - 开发版本使用 `X.Y.Z-dev.N`，并同步更新 `package.json` 与 `package-lock.json`。
 - 开发预发布标签必须与包版本完全一致，例如 `v0.1.0-dev.0`。推送标签前先完成完整验证并获得明确的版本确认。
 - `.github/workflows/release.yml` 的手动运行只构建可下载产物；推送匹配 `v*-dev.*` 的标签才会创建 GitHub Prerelease。
+- 推送 `dev` 分支会自动执行同一套检查和打包流程，但只上传 Actions artifact，不创建 Release。
 - 当前没有稳定版本发布工作流。正式发布前必须先明确版本、验证发布流程，再推送 `main` 和稳定标签。
 - 未经明确授权，不推送 `main`、创建或移动标签、发布 Release。
 

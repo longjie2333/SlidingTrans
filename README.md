@@ -48,6 +48,8 @@ npm run test:e2e
 
 当前版本使用 `0.1.0-dev.0` 形式的预发布版本号。推送与 `package.json` 版本严格一致的标签（例如 `v0.1.0-dev.0`）后，GitHub Actions 会完成类型检查、单元测试、MV3 冒烟测试和扩展打包，并将 ZIP 上传到 GitHub Prerelease。也可以手动运行工作流，仅生成可下载的构建产物而不发布 Release。
 
+日常推送 `dev` 分支也会运行检查和打包流程，仅保留 Actions artifact，不会创建 Release。
+
 ## 开源协议
 
 SlidingTrans 是独立实现的项目，与沉浸式翻译及其开发者不存在隶属或关联关系。本项目不包含沉浸式翻译当前闭源版本或旧开源仓库的源代码、品牌与图标。
