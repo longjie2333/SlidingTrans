@@ -121,6 +121,7 @@ button { color: inherit; font: inherit; letter-spacing: 0; text-transform: none;
 .st-error-body { display: grid; justify-items: start; gap: 12px; min-height: 92px; color: #c24662; font-size: 13px; }
 .st-error-body p { margin: 0; word-break: break-word; }
 .st-secondary-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #30A46C; border-radius: 6px; background: #fff; color: #30A46C; cursor: pointer; font-size: 12px; }
+.st-page-translation { display: block; margin: .2em 0 .45em; padding-inline-start: .7em; border-inline-start: 2px solid rgba(48,164,108,.55); color: #278957; font-size: .92em; line-height: 1.45; white-space: pre-wrap; }
 
 @media (prefers-color-scheme: dark) {
   .st-ui-root {
@@ -148,6 +149,7 @@ button { color: inherit; font: inherit; letter-spacing: 0; text-transform: none;
   .st-menu button:hover, .st-header-actions > button:hover, .st-menu-wrap > button:hover, .st-history button:hover, .st-result-actions button:hover, .st-word-heading button:hover { background: #333; }
   .st-example { color: #aaa; }
   .st-secondary-button { background: #222; }
+  .st-page-translation { border-color: rgba(119,211,163,.65); color: #8edfb2; }
   .st-structured-translation li::marker { color: #aab5ae; }
   .st-structured-translation code { background: #2b302d; color: #b8e8cb; }
   .st-structured-translation pre { border-color: #3b4640; background: #202421; color: #e1e8e3; }

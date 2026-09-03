@@ -10,6 +10,7 @@ export const API_PROTOCOL_LABELS: Record<ApiProtocol, string> = {
 export type ApiProtocol = (typeof API_PROTOCOLS)[number];
 export type TriggerMode = (typeof TRIGGER_MODES)[number];
 export type TriggerActivation = (typeof TRIGGER_ACTIVATIONS)[number];
+export type PageTranslationMode = "below" | "replace";
 
 export interface TranslationService {
   id: string;
@@ -33,6 +34,8 @@ export interface SlidingTransSettings {
   autoReadWord: boolean;
   enableWhenSameLanguage: boolean;
   ignoreInputSelections: boolean;
+  pageTranslationEnabled: boolean;
+  pageTranslationMode: PageTranslationMode;
   blockedHosts: string[];
 }
 

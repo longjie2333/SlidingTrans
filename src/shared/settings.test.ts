@@ -10,6 +10,8 @@ describe("settings", () => {
     expect(settings.services[0]?.protocol).toBe("openai-chat-completions");
     expect(settings.systemPrompt).toContain("{{targetLanguage}}");
     expect(settings.ignoreInputSelections).toBe(true);
+    expect(settings.pageTranslationEnabled).toBe(false);
+    expect(settings.pageTranslationMode).toBe("below");
   });
 
   it("matches a blocked domain and its subdomains", () => {

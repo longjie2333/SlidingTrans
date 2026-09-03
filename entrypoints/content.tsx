@@ -7,6 +7,7 @@ import { play } from "cuelume";
 import { Button } from "../src/ui/button";
 import AILoader from "../src/components/smoothui/ai-loader";
 import { getTranslationSegments, isLikelySameLanguage, refreshSelectionSnapshot, SelectionController } from "../src/content/selection";
+import { PageTranslationManager } from "../src/content/page-translation";
 import { clampModalPosition, getModalPlacement, getTriggerPoint, isRectVisible } from "../src/content/position";
 import { isHostBlocked, isHostPausedForSession, loadContentSettings, pauseHostForSession, saveContentSettings } from "../src/shared/settings";
 import type { ContentSettings, SelectionContentNode, SelectionSnapshot, TranslationResult, TranslationStreamEvent } from "../src/shared/types";
@@ -358,6 +359,7 @@ function ContentApp() {
   const recordsRef = useRef<TranslationRecord[]>([]);
   const activeIndexRef = useRef(0);
   const pinnedRef = useRef(false);
+  const pageTranslationRef = useRef<PageTranslationManager | undefined>(undefined);
 
   triggerSelectionRef.current = triggerSelection;
   recordsRef.current = records;
@@ -385,6 +387,55 @@ function ContentApp() {
     }
     try { port.disconnect(); } catch { /* The worker may already be gone. */ }
   };
+
+  const requestPageTranslation = (text: string, requestId: string, signal: AbortSignal): Promise<TranslationResult> => new Promise((resolve, reject) => {
+    const port = browser.runtime.connect({ name: "sliding-trans" });
+    let settled = false;
+    let timeoutId: number | undefined;
+    const finish = (error?: Error, result?: TranslationResult) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      signal.removeEventListener("abort", onAbort);
+      port.onMessage.removeListener(onMessage);
+      try { port.disconnect(); } catch { /* The request may already be complete. */ }
+      if (error) reject(error);
+      else if (result) resolve(result);
+      else reject(new Error("翻译服务没有返回结果"));
+    };
+    const onAbort = () => {
+      try { port.postMessage({ type: "abort", requestId }); } catch { /* Disconnect below aborts the worker request. */ }
+      finish(new DOMException("Translation aborted", "AbortError"));
+    };
+    const onMessage = (event: TranslationStreamEvent) => {
+      if (event.requestId !== requestId) return;
+      if (event.type === "complete") {
+        const segmentTranslation = event.result.segmentTranslations?.find((segment) => segment.id === requestId)?.translation;
+        finish(undefined, segmentTranslation === undefined ? event.result : { ...event.result, translation: segmentTranslation });
+      }
+      else if (event.type === "error") finish(new Error(event.message));
+      else if (event.type === "aborted") finish(new DOMException("Translation aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    port.onMessage.addListener(onMessage);
+    port.onDisconnect.addListener(() => {
+      if (!settled) finish(new Error("翻译连接已断开"));
+    });
+    try {
+      port.postMessage({
+        type: "translate",
+        requestId,
+        text,
+        contextText: "",
+        segments: [{ id: requestId, text }],
+        targetLanguage: settingsRef.current?.targetLanguage ?? "zh-CN",
+      });
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error("无法连接翻译服务"));
+      return;
+    }
+    timeoutId = window.setTimeout(() => finish(new Error("翻译请求超时，请稍后重试")), 30_000);
+  });
 
   const connectTranslation = (selection: SelectionSnapshot, currentSettings: ContentSettings, attempt = 0) => {
     if (activeRequestIdRef.current !== selection.id) return;
@@ -495,6 +546,30 @@ function ContentApp() {
     });
     return () => controllerRef.current?.dispose();
   }, [Boolean(settings)]);
+
+  useEffect(() => {
+    pageTranslationRef.current?.dispose();
+    pageTranslationRef.current = undefined;
+    if (!settings?.enabled || !settings.pageTranslationEnabled || isHostBlocked(location.hostname, settings.blockedHosts)) return;
+    const manager = new PageTranslationManager({
+      mode: settings.pageTranslationMode,
+      translate: requestPageTranslation,
+      shouldTranslate: (text) => {
+        const current = settingsRef.current;
+        return Boolean(current?.enableWhenSameLanguage || !isLikelySameLanguage(text, current?.targetLanguage ?? "zh-CN"));
+      },
+    });
+    pageTranslationRef.current = manager;
+    manager.start();
+    return () => {
+      manager.dispose();
+      if (pageTranslationRef.current === manager) pageTranslationRef.current = undefined;
+    };
+  }, [settings?.enabled, settings?.pageTranslationEnabled, settings?.blockedHosts.join(",")]);
+
+  useEffect(() => {
+    if (settings?.pageTranslationMode) pageTranslationRef.current?.setMode(settings.pageTranslationMode);
+  }, [settings?.pageTranslationMode]);
 
   useEffect(() => {
     const shouldTrack = Boolean(triggerSelection) || records.length > 0;

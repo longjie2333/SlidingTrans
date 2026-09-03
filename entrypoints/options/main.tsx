@@ -223,6 +223,16 @@ function OptionsApp() {
           <label><Checkbox checked={settings.ignoreInputSelections} onCheckedChange={(checked) => update({ ignoreInputSelections: checked === true })} /> 输入框、文本框和编辑状态中不显示划词翻译</label>
         </div>
       </Card>
+      <Card className="settings-section">
+        <h2>页面翻译</h2>
+        <div className="form-grid translation-grid">
+          <label>翻译显示方式<Select value={settings.pageTranslationMode} onValueChange={(value) => update({ pageTranslationMode: value as SlidingTransSettings["pageTranslationMode"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="below">原文下方显示</SelectItem><SelectItem value="replace">直接替换原文</SelectItem></SelectContent></Select></label>
+        </div>
+        <div className="check-list">
+          <label><Checkbox checked={settings.pageTranslationEnabled} onCheckedChange={(checked) => update({ pageTranslationEnabled: checked === true })} /> 仅翻译当前可视区域</label>
+        </div>
+        <p className="hint">滚动或页面新增内容进入可视区域后会继续翻译。翻译请求按文本节点排队，并在离开页面时取消未完成请求。</p>
+      </Card>
       <Card className="settings-section system-prompt-section">
         <div className="section-header">
           <h2>系统提示词</h2>
