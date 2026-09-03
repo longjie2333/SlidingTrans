@@ -37,6 +37,7 @@ async function findChromiumExecutable() {
 
 const profilePath = await fs.mkdtemp(path.join(os.tmpdir(), "sliding-trans-e2e-"));
 let calls = 0;
+const requestedTexts = [];
 let modelCalls = 0;
 let deepLxCalls = 0;
 let holdNextTranslation = true;
@@ -119,6 +120,7 @@ const server = http.createServer((request, response) => {
         const userPrompt = parsed.messages?.find((message) => message.role === "user")?.content ?? "";
         const segmentMatch = userPrompt.match(/\[Translatable segments\]\n([^\n]+)/u);
         segments = segmentMatch ? JSON.parse(segmentMatch[1]) : [];
+        requestedTexts.push(segments.map((segment) => segment.text).join("|"));
       } catch {
         // The response stream still exercises the request cancellation path.
       }
@@ -205,6 +207,7 @@ try {
         ignoreInputSelections: true,
         pageTranslationEnabled: false,
         pageTranslationMode: "below",
+        pageTranslationHosts: [],
         blockedHosts: [],
       },
       slidingTransServiceKeys: { mock: "e2e-key", deeplx: "e2e-deeplx-token" },
@@ -615,20 +618,25 @@ try {
   await options.locator(".service-item").filter({ hasText: "Mock 服务" }).locator(".service-item-main").click();
   await options.waitForFunction(() => document.querySelector(".service-item.active .service-item-name")?.textContent?.trim() === "Mock 服务");
   await options.waitForTimeout(500);
-  const pageTranslationCheckbox = options.getByText("仅翻译当前可视区域", { exact: false }).locator('[data-slot="checkbox"]');
-  await pageTranslationCheckbox.click();
-  await options.waitForTimeout(600);
-  assert.equal(await pageTranslationCheckbox.getAttribute("data-state"), "checked");
   const pageTranslation = await context.newPage();
-  const pageTranslationCallsBefore = calls;
   await pageTranslation.goto(`http://127.0.0.1:${port}/page-translation`);
+  await pageTranslation.bringToFront();
+  const pageTranslationPopup = await context.newPage();
+  await pageTranslationPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await pageTranslationPopup.getByRole("button", { name: "翻译此页" }).click();
+  await pageTranslationPopup.waitForFunction(async (host) => {
+    const stored = await chrome.storage.local.get("slidingTransSettings");
+    return stored.slidingTransSettings?.pageTranslationHosts?.includes(host);
+  }, "127.0.0.1");
+  await pageTranslationPopup.close();
   await pageTranslation.waitForSelector("#page-visible .st-page-translation", { timeout: 5000 });
   assert.equal(await pageTranslation.locator("#page-visible .st-page-translation").textContent(), "可视页面句子");
   assert.equal(await pageTranslation.locator("#page-lazy .st-page-translation").count(), 0);
   await pageTranslation.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await pageTranslation.waitForSelector("#page-lazy .st-page-translation", { timeout: 5000 });
   assert.equal(await pageTranslation.locator("#page-lazy .st-page-translation").textContent(), "懒加载页面句子");
-  assert.equal(calls - pageTranslationCallsBefore, 2);
+  const pageTranslationRequestCount = () => requestedTexts.filter((text) => ["Visible page sentence", "Lazy page sentence", "Dynamic page sentence"].includes(text)).length;
+  assert.equal(pageTranslationRequestCount(), 2);
   await pageTranslation.evaluate(() => {
     const paragraph = document.createElement("p");
     paragraph.id = "page-dynamic";
@@ -638,17 +646,24 @@ try {
   });
   await pageTranslation.waitForSelector("#page-dynamic .st-page-translation", { timeout: 5000 });
   assert.equal(await pageTranslation.locator("#page-dynamic .st-page-translation").textContent(), "动态页面句子");
-  assert.equal(calls - pageTranslationCallsBefore, 3);
+  assert.equal(pageTranslationRequestCount(), 3);
 
-  await options.bringToFront();
-  await options.waitForSelector("text=页面翻译");
-  await options.locator('[data-slot="select"]').filter({ hasText: "原文下方显示" }).click();
-  await options.getByText("直接替换原文", { exact: true }).click();
-  await options.waitForTimeout(600);
+  const originalPageTranslationRequests = pageTranslationRequestCount();
+  const originalPopup = await context.newPage();
   await pageTranslation.bringToFront();
-  await pageTranslation.waitForFunction(() => document.querySelector("#page-visible")?.textContent === "可视页面句子", undefined, { timeout: 5000 });
-  assert.equal(await pageTranslation.locator("#page-visible .st-page-translation").count(), 0);
-  assert.equal(await pageTranslation.locator("#page-visible").textContent(), "可视页面句子");
+  await originalPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await originalPopup.getByRole("button", { name: "显示原文" }).click();
+  await originalPopup.waitForFunction(async (host) => {
+    const stored = await chrome.storage.local.get("slidingTransSettings");
+    return !stored.slidingTransSettings?.pageTranslationHosts?.includes(host);
+  }, "127.0.0.1");
+  await originalPopup.close();
+  await pageTranslation.bringToFront();
+  await pageTranslation.waitForFunction(() => document.querySelector("#page-visible .st-page-translation") === null, undefined, { timeout: 5000 });
+  await pageTranslation.reload();
+  await pageTranslation.waitForTimeout(700);
+  assert.equal(await pageTranslation.locator(".st-page-translation").count(), 0);
+  assert.equal(pageTranslationRequestCount(), originalPageTranslationRequests);
   await pageTranslation.close();
   console.log("MV3 smoke test passed: selection + visible-page incremental translation + DeepLX translation");
 } finally {
