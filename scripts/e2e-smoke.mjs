@@ -65,6 +65,11 @@ const server = http.createServer((request, response) => {
     </body></html>`);
     return;
   }
+  if (request.url === "/page-translation") {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(`<!doctype html><html><body style="margin:0"><p id="page-visible" style="margin:40px">Visible page sentence</p><p id="page-lazy" style="margin-top:2000px">Lazy page sentence</p></body></html>`);
+    return;
+  }
   if (requestUrl?.pathname.endsWith("/models")) {
     modelCalls += 1;
     response.writeHead(200, {
@@ -138,6 +143,9 @@ const server = http.createServer((request, response) => {
         ["Second line", "第二行"],
         ["Third line", "第三行"],
         ["const answer = 42;", "常量答案 = 42；"],
+        ["Visible page sentence", "可视页面句子"],
+        ["Lazy page sentence", "懒加载页面句子"],
+        ["Dynamic page sentence", "动态页面句子"],
       ]);
       const segmentTranslations = segments.map((segment) => ({
         id: segment.id,
@@ -195,6 +203,8 @@ try {
         autoReadWord: false,
         enableWhenSameLanguage: true,
         ignoreInputSelections: true,
+        pageTranslationEnabled: false,
+        pageTranslationMode: "below",
         blockedHosts: [],
       },
       slidingTransServiceKeys: { mock: "e2e-key", deeplx: "e2e-deeplx-token" },
@@ -216,7 +226,7 @@ try {
   }), true);
   assert.equal(await options.locator(".service-list .service-new-button").count(), 0);
   assert.notEqual(await serviceList.locator(".service-item").nth(1).evaluate((element) => getComputedStyle(element).backgroundColor), "rgba(0, 0, 0, 0)");
-  assert.equal(await options.locator(".translation-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length), 3);
+  assert.equal(await options.locator(".translation-grid").first().evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length), 3);
   assert.equal(await options.locator(".service-details .form-grid > label.full").count(), 2);
   assert.equal((await options.locator(".service-item.active .service-item-name").textContent())?.trim(), "Mock 服务");
   await options.getByRole("button", { name: "新建" }).click();
@@ -600,7 +610,47 @@ try {
   await deepLxPopup.getByText("AI 划词翻译", { exact: false }).waitFor();
   assert.equal(await deepLxPopup.locator(".setup-notice").count(), 0);
   await deepLxPopup.close();
-  console.log("MV3 smoke test passed: model discovery + selection -> trigger -> SSE translation -> DeepLX translation");
+
+  await options.bringToFront();
+  await options.locator(".service-item").filter({ hasText: "Mock 服务" }).locator(".service-item-main").click();
+  await options.waitForFunction(() => document.querySelector(".service-item.active .service-item-name")?.textContent?.trim() === "Mock 服务");
+  await options.waitForTimeout(500);
+  const pageTranslationCheckbox = options.getByText("仅翻译当前可视区域", { exact: false }).locator('[data-slot="checkbox"]');
+  await pageTranslationCheckbox.click();
+  await options.waitForTimeout(600);
+  assert.equal(await pageTranslationCheckbox.getAttribute("data-state"), "checked");
+  const pageTranslation = await context.newPage();
+  const pageTranslationCallsBefore = calls;
+  await pageTranslation.goto(`http://127.0.0.1:${port}/page-translation`);
+  await pageTranslation.waitForSelector("#page-visible .st-page-translation", { timeout: 5000 });
+  assert.equal(await pageTranslation.locator("#page-visible .st-page-translation").textContent(), "可视页面句子");
+  assert.equal(await pageTranslation.locator("#page-lazy .st-page-translation").count(), 0);
+  await pageTranslation.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await pageTranslation.waitForSelector("#page-lazy .st-page-translation", { timeout: 5000 });
+  assert.equal(await pageTranslation.locator("#page-lazy .st-page-translation").textContent(), "懒加载页面句子");
+  assert.equal(calls - pageTranslationCallsBefore, 2);
+  await pageTranslation.evaluate(() => {
+    const paragraph = document.createElement("p");
+    paragraph.id = "page-dynamic";
+    paragraph.textContent = "Dynamic page sentence";
+    document.body.append(paragraph);
+    window.scrollTo(0, document.body.scrollHeight);
+  });
+  await pageTranslation.waitForSelector("#page-dynamic .st-page-translation", { timeout: 5000 });
+  assert.equal(await pageTranslation.locator("#page-dynamic .st-page-translation").textContent(), "动态页面句子");
+  assert.equal(calls - pageTranslationCallsBefore, 3);
+
+  await options.bringToFront();
+  await options.waitForSelector("text=页面翻译");
+  await options.locator('[data-slot="select"]').filter({ hasText: "原文下方显示" }).click();
+  await options.getByText("直接替换原文", { exact: true }).click();
+  await options.waitForTimeout(600);
+  await pageTranslation.bringToFront();
+  await pageTranslation.waitForFunction(() => document.querySelector("#page-visible")?.textContent === "可视页面句子", undefined, { timeout: 5000 });
+  assert.equal(await pageTranslation.locator("#page-visible .st-page-translation").count(), 0);
+  assert.equal(await pageTranslation.locator("#page-visible").textContent(), "可视页面句子");
+  await pageTranslation.close();
+  console.log("MV3 smoke test passed: selection + visible-page incremental translation + DeepLX translation");
 } finally {
   await context.close();
   server.close();
